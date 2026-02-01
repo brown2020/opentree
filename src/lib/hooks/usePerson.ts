@@ -1,0 +1,130 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import {
+  createPerson,
+  getPerson,
+  getTreePersons,
+  updatePerson,
+  deletePerson,
+} from '@/lib/firebase/firestore';
+import { useTreeStore } from '@/lib/stores/treeStore';
+import type { Person, PersonFormData } from '@/lib/types';
+
+export function usePersons(treeId: string | null) {
+  const { setPersons } = useTreeStore();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchPersons = useCallback(async () => {
+    if (!treeId) {
+      setPersons([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const data = await getTreePersons(treeId);
+      setPersons(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch persons');
+    } finally {
+      setLoading(false);
+    }
+  }, [treeId, setPersons]);
+
+  useEffect(() => {
+    fetchPersons();
+  }, [fetchPersons]);
+
+  const create = async (data: PersonFormData): Promise<string | null> => {
+    if (!treeId) return null;
+
+    try {
+      const id = await createPerson(treeId, data);
+      await fetchPersons();
+      return id;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create person');
+      return null;
+    }
+  };
+
+  const update = async (
+    personId: string,
+    data: Partial<PersonFormData>
+  ): Promise<boolean> => {
+    if (!treeId) return false;
+
+    try {
+      await updatePerson(treeId, personId, data);
+      await fetchPersons();
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update person');
+      return false;
+    }
+  };
+
+  const remove = async (personId: string): Promise<boolean> => {
+    if (!treeId) return false;
+
+    try {
+      await deletePerson(treeId, personId);
+      await fetchPersons();
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete person');
+      return false;
+    }
+  };
+
+  return {
+    loading,
+    error,
+    refetch: fetchPersons,
+    create,
+    update,
+    remove,
+  };
+}
+
+export function usePersonDetails(treeId: string | null, personId: string | null) {
+  const [person, setPerson] = useState<Person | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchPerson = useCallback(async () => {
+    if (!treeId || !personId) {
+      setPerson(null);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const data = await getPerson(treeId, personId);
+      setPerson(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch person');
+    } finally {
+      setLoading(false);
+    }
+  }, [treeId, personId]);
+
+  useEffect(() => {
+    fetchPerson();
+  }, [fetchPerson]);
+
+  return {
+    person,
+    loading,
+    error,
+    refetch: fetchPerson,
+  };
+}
