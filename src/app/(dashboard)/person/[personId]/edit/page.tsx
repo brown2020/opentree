@@ -1,14 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { usePersonDetails, usePersons } from '@/lib/hooks/usePerson';
+import { usePersonDetails } from '@/lib/hooks/usePerson';
+import { updatePerson } from '@/lib/firebase/firestore';
 import { PersonForm } from '@/components/person/PersonForm';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import type { PersonSchemaFormData } from '@/lib/utils/validation';
 
-export default function EditPersonPage() {
+function EditPersonContent() {
   const params = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -16,16 +17,16 @@ export default function EditPersonPage() {
   const treeId = searchParams.get('tree');
 
   const { person, loading } = usePersonDetails(treeId, personId);
-  const { update } = usePersons(treeId);
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSubmit = async (data: PersonSchemaFormData) => {
+    if (!treeId) return;
     setIsSaving(true);
-    const success = await update(personId, data);
-    setIsSaving(false);
-
-    if (success) {
+    try {
+      await updatePerson(treeId, personId, data);
       router.push(`/person/${personId}?tree=${treeId}`);
+    } catch {
+      setIsSaving(false);
     }
   };
 
@@ -85,5 +86,19 @@ export default function EditPersonPage() {
         />
       </div>
     </div>
+  );
+}
+
+export default function EditPersonPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[50vh] items-center justify-center">
+          <LoadingSpinner size="lg" />
+        </div>
+      }
+    >
+      <EditPersonContent />
+    </Suspense>
   );
 }

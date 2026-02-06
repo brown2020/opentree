@@ -11,7 +11,8 @@ import { ConfirmModal } from '@/components/ui/Modal';
 import { PersonCard } from '@/components/person/PersonCard';
 import { AddPersonModal } from '@/components/person/AddPersonModal';
 import { FamilyTree } from '@/components/tree/FamilyTree';
-import type { Person, PersonFormData } from '@/lib/types';
+import type { Person } from '@/lib/types';
+import type { PersonSchemaFormData } from '@/lib/utils/validation';
 
 type ViewMode = 'tree' | 'list';
 
@@ -29,7 +30,7 @@ export default function TreePage() {
   const [isAdding, setIsAdding] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const handleAddPerson = async (data: PersonFormData) => {
+  const handleAddPerson = async (data: PersonSchemaFormData) => {
     setIsAdding(true);
     await create(data);
     setIsAdding(false);

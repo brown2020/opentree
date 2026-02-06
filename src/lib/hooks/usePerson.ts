@@ -8,10 +8,13 @@ import {
   updatePerson,
   deletePerson,
 } from '@/lib/firebase/firestore';
+import { useAuth } from './useAuth';
 import { useTreeStore } from '@/lib/stores/treeStore';
-import type { Person, PersonFormData } from '@/lib/types';
+import type { Person } from '@/lib/types';
+import type { PersonSchemaFormData } from '@/lib/utils/validation';
 
 export function usePersons(treeId: string | null) {
+  const { user } = useAuth();
   const { setPersons } = useTreeStore();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +43,7 @@ export function usePersons(treeId: string | null) {
     fetchPersons();
   }, [fetchPersons]);
 
-  const create = async (data: PersonFormData): Promise<string | null> => {
+  const create = async (data: PersonSchemaFormData): Promise<string | null> => {
     if (!treeId) return null;
 
     try {
@@ -55,7 +58,7 @@ export function usePersons(treeId: string | null) {
 
   const update = async (
     personId: string,
-    data: Partial<PersonFormData>
+    data: Partial<PersonSchemaFormData>
   ): Promise<boolean> => {
     if (!treeId) return false;
 
@@ -70,10 +73,10 @@ export function usePersons(treeId: string | null) {
   };
 
   const remove = async (personId: string): Promise<boolean> => {
-    if (!treeId) return false;
+    if (!treeId || !user) return false;
 
     try {
-      await deletePerson(treeId, personId);
+      await deletePerson(treeId, personId, user.uid);
       await fetchPersons();
       return true;
     } catch (err) {

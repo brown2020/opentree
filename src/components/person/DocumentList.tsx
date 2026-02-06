@@ -132,74 +132,75 @@ export function DocumentList({ treeId, personId }: DocumentListProps) {
         </div>
       ) : (
         <div className="divide-y divide-gray-200 rounded-lg border border-gray-200 dark:divide-gray-700 dark:border-gray-700">
-          {documents.map((doc) => (
-            <div
-              key={doc.id}
-              className="flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-800"
-            >
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-gray-700">
-                {getDocumentIcon(doc.mimeType)}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-medium text-gray-900 dark:text-gray-100">
-                  {doc.name}
-                </p>
-                <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                  <span>{DOCUMENT_TYPE_LABELS[doc.type]}</span>
-                  <span>•</span>
-                  <span>{formatFileSize(doc.fileSize)}</span>
-                  {doc.date && (
-                    <>
-                      <span>•</span>
-                      <span>
-                        {format(timestampToDate(doc.date)!, 'MMM d, yyyy')}
-                      </span>
-                    </>
-                  )}
+          {documents.map((doc) => {
+            const dateValue = doc.date ? timestampToDate(doc.date) : null;
+            return (
+              <div
+                key={doc.id}
+                className="flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-800"
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-gray-700">
+                  {getDocumentIcon(doc.mimeType)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium text-gray-900 dark:text-gray-100">
+                    {doc.name}
+                  </p>
+                  <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                    <span>{DOCUMENT_TYPE_LABELS[doc.type]}</span>
+                    <span>•</span>
+                    <span>{formatFileSize(doc.fileSize)}</span>
+                    {dateValue && (
+                      <>
+                        <span>•</span>
+                        <span>{format(dateValue, 'MMM d, yyyy')}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <a
+                    href={doc.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"
+                  >
+                    <svg
+                      className="h-5 w-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                      />
+                    </svg>
+                  </a>
+                  <button
+                    onClick={() => setDeleteDoc(doc)}
+                    className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-red-500 dark:hover:bg-gray-700"
+                  >
+                    <svg
+                      className="h-5 w-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                  </button>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <a
-                  href={doc.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"
-                >
-                  <svg
-                    className="h-5 w-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                    />
-                  </svg>
-                </a>
-                <button
-                  onClick={() => setDeleteDoc(doc)}
-                  className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-red-500 dark:hover:bg-gray-700"
-                >
-                  <svg
-                    className="h-5 w-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

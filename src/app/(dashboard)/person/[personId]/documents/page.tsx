@@ -1,12 +1,13 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { usePersonDetails } from '@/lib/hooks/usePerson';
 import { DocumentList } from '@/components/person/DocumentList';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
-export default function PersonDocumentsPage() {
+function PersonDocumentsContent() {
   const params = useParams();
   const searchParams = useSearchParams();
   const personId = params.personId as string;
@@ -32,7 +33,6 @@ export default function PersonDocumentsPage() {
 
   return (
     <div className="mx-auto max-w-4xl">
-      {/* Back link */}
       <Link
         href={`/person/${personId}?tree=${treeId}`}
         className="mb-6 inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
@@ -59,5 +59,19 @@ export default function PersonDocumentsPage() {
 
       <DocumentList treeId={treeId} personId={personId} />
     </div>
+  );
+}
+
+export default function PersonDocumentsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[50vh] items-center justify-center">
+          <LoadingSpinner size="lg" />
+        </div>
+      }
+    >
+      <PersonDocumentsContent />
+    </Suspense>
   );
 }

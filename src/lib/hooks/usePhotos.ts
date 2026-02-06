@@ -11,6 +11,7 @@ import {
   serverTimestamp,
   query,
   orderBy,
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { uploadPhoto, deleteFile } from '@/lib/firebase/storage';
@@ -39,9 +40,9 @@ export function usePhotos(treeId: string | null, personId: string | null) {
         orderBy('createdAt', 'desc')
       );
       const snapshot = await getDocs(q);
-      const data = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
+      const data = snapshot.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
       })) as Photo[];
       setPhotos(data);
     } catch (err) {
@@ -62,35 +63,31 @@ export function usePhotos(treeId: string | null, personId: string | null) {
     if (!user || !treeId || !personId) return null;
 
     try {
-      // Create photo document first to get ID
-      const docRef = await addDoc(
-        collection(db, 'trees', treeId, 'persons', personId, 'photos'),
-        {
-          url: '',
-          thumbnailUrl: '',
-          caption: data?.caption || null,
-          date: null,
-          isProfilePhoto: data?.isProfilePhoto || false,
-          storagePath: '',
-          createdAt: serverTimestamp(),
-        }
-      );
+      // Generate a temporary ID for storage path
+      const tempId = crypto.randomUUID();
 
-      // Upload file
+      // Upload file to storage first (so we don't create orphaned Firestore docs)
       const { url, storagePath } = await uploadPhoto(
         user.uid,
         treeId,
         personId,
         file,
-        docRef.id
+        tempId
       );
 
-      // Update document with URL
-      await updateDoc(docRef, {
-        url,
-        thumbnailUrl: url, // TODO: Generate actual thumbnails
-        storagePath,
-      });
+      // Create Firestore document with the actual URL
+      const docRef = await addDoc(
+        collection(db, 'trees', treeId, 'persons', personId, 'photos'),
+        {
+          url,
+          thumbnailUrl: url,
+          caption: data?.caption || null,
+          date: null,
+          isProfilePhoto: data?.isProfilePhoto || false,
+          storagePath,
+          createdAt: serverTimestamp(),
+        }
+      );
 
       await fetchPhotos();
       return docRef.id;
@@ -145,20 +142,20 @@ export function usePhotos(treeId: string | null, personId: string | null) {
     if (!treeId || !personId) return false;
 
     try {
-      // Remove profile flag from all other photos
-      const updates = photos
-        .filter((p) => p.isProfilePhoto)
-        .map((p) =>
-          updateDoc(
+      const batch = writeBatch(db);
+
+      // Remove profile flag from all current profile photos
+      for (const p of photos) {
+        if (p.isProfilePhoto) {
+          batch.update(
             doc(db, 'trees', treeId, 'persons', personId, 'photos', p.id),
             { isProfilePhoto: false }
-          )
-        );
-
-      await Promise.all(updates);
+          );
+        }
+      }
 
       // Set new profile photo
-      await updateDoc(
+      batch.update(
         doc(db, 'trees', treeId, 'persons', personId, 'photos', photoId),
         { isProfilePhoto: true }
       );
@@ -166,11 +163,12 @@ export function usePhotos(treeId: string | null, personId: string | null) {
       // Update person's profilePhotoUrl
       const photo = photos.find((p) => p.id === photoId);
       if (photo) {
-        await updateDoc(doc(db, 'trees', treeId, 'persons', personId), {
+        batch.update(doc(db, 'trees', treeId, 'persons', personId), {
           profilePhotoUrl: photo.url,
         });
       }
 
+      await batch.commit();
       await fetchPhotos();
       return true;
     } catch (err) {

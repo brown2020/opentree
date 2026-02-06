@@ -18,7 +18,7 @@ export function AddPersonModal({
   loading,
 }: AddPersonModalProps) {
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Add Person to Tree">
+    <Modal isOpen={isOpen} onClose={onClose} title="Add Person to Tree" size="lg">
       <PersonForm onSubmit={onSubmit} onCancel={onClose} loading={loading} />
     </Modal>
   );

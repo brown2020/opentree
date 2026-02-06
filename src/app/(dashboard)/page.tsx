@@ -8,7 +8,8 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { ConfirmModal } from '@/components/ui/Modal';
 import { TreeCard } from '@/components/tree/TreeCard';
 import { CreateTreeModal } from '@/components/tree/CreateTreeModal';
-import type { Tree, TreeFormData } from '@/lib/types';
+import type { Tree } from '@/lib/types';
+import type { TreeSchemaFormData } from '@/lib/utils/validation';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -18,7 +19,7 @@ export default function DashboardPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const handleCreateTree = async (data: TreeFormData) => {
+  const handleCreateTree = async (data: TreeSchemaFormData) => {
     setIsCreating(true);
     const treeId = await create(data);
     setIsCreating(false);

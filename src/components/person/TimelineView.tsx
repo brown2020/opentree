@@ -9,6 +9,7 @@ import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { useTimeline } from '@/lib/hooks/useTimeline';
 import { timestampToDate } from '@/lib/firebase/firestore';
+import { toLocalDateString } from '@/lib/utils/dateFormat';
 import { EVENT_TYPE_LABELS } from '@/lib/types';
 import type { PersonEvent, EventType, EventFormData } from '@/lib/types';
 
@@ -317,10 +318,10 @@ export function TimelineView({ treeId, personId }: TimelineViewProps) {
                 </label>
                 <input
                   type="date"
-                  value={field.value ? field.value.toISOString().split('T')[0] : ''}
+                  value={field.value ? toLocalDateString(field.value) : ''}
                   onChange={(e) =>
                     field.onChange(
-                      e.target.value ? new Date(e.target.value) : null
+                      e.target.value ? new Date(e.target.value + 'T00:00:00') : null
                     )
                   }
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"

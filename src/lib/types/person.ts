@@ -19,24 +19,3 @@ export interface Person {
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
-
-export interface PersonFormData {
-  firstName: string;
-  lastName: string;
-  middleName?: string;
-  maidenName?: string;
-  gender: Gender;
-  birthDate?: Date | null;
-  birthPlace?: string;
-  deathDate?: Date | null;
-  deathPlace?: string;
-  isLiving: boolean;
-  bio?: string;
-}
-
-export interface PersonWithRelationships extends Person {
-  parents: Person[];
-  children: Person[];
-  spouses: Person[];
-  siblings: Person[];
-}

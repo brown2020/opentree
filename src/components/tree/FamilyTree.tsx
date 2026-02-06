@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import * as d3 from 'd3';
-import Link from 'next/link';
+import { select } from 'd3-selection';
+import { zoom as d3Zoom, zoomIdentity, type ZoomBehavior } from 'd3-zoom';
+import 'd3-transition';
+import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import type { Person } from '@/lib/types';
 import { timestampToDate } from '@/lib/firebase/firestore';
@@ -25,18 +27,21 @@ export function FamilyTree({
   onSelectPerson,
   treeId,
 }: FamilyTreeProps) {
+  const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  const zoomRef = useRef<ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
-  const [transform, setTransform] = useState(d3.zoomIdentity);
+  const [transform, setTransform] = useState(zoomIdentity);
 
   // Update dimensions on resize
   useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
     const updateDimensions = () => {
-      if (containerRef.current) {
-        const { width, height } = containerRef.current.getBoundingClientRect();
-        setDimensions({ width, height });
-      }
+      const { width, height } = container.getBoundingClientRect();
+      setDimensions({ width, height });
     };
 
     updateDimensions();
@@ -44,28 +49,33 @@ export function FamilyTree({
     return () => window.removeEventListener('resize', updateDimensions);
   }, []);
 
-  // Set up zoom behavior
+  // Set up zoom behavior once
   useEffect(() => {
     if (!svgRef.current) return;
 
-    const svg = d3.select(svgRef.current);
-    const zoom = d3.zoom<SVGSVGElement, unknown>()
+    const svg = select(svgRef.current);
+    const zoomBehavior = d3Zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.1, 4])
       .on('zoom', (event) => {
         setTransform(event.transform);
       });
 
-    svg.call(zoom);
+    zoomRef.current = zoomBehavior;
+    svg.call(zoomBehavior);
 
     // Center the view initially
-    const initialTransform = d3.zoomIdentity
-      .translate(dimensions.width / 4, dimensions.height / 2);
-    svg.call(zoom.transform, initialTransform);
+    const initialTransform = zoomIdentity.translate(
+      dimensions.width / 4,
+      dimensions.height / 2
+    );
+    svg.call(zoomBehavior.transform, initialTransform);
 
     return () => {
       svg.on('.zoom', null);
     };
-  }, [dimensions]);
+    // Only run once on mount — don't re-initialize on dimension changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Calculate node positions (simple grid for now)
   const nodes = persons.map((person, index) => {
@@ -80,9 +90,51 @@ export function FamilyTree({
     };
   });
 
-  const handleNodeClick = useCallback((personId: string) => {
-    onSelectPerson(selectedPersonId === personId ? null : personId);
-  }, [selectedPersonId, onSelectPerson]);
+  const handleNodeClick = useCallback(
+    (personId: string) => {
+      onSelectPerson(selectedPersonId === personId ? null : personId);
+    },
+    [selectedPersonId, onSelectPerson]
+  );
+
+  const handleNavigateToPerson = useCallback(
+    (e: React.MouseEvent, personId: string) => {
+      e.stopPropagation();
+      router.push(`/person/${personId}?tree=${treeId}`);
+    },
+    [router, treeId]
+  );
+
+  const handleZoomIn = useCallback(() => {
+    if (svgRef.current && zoomRef.current) {
+      select(svgRef.current)
+        .transition()
+        .duration(300)
+        .call(zoomRef.current.scaleBy, 1.5);
+    }
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    if (svgRef.current && zoomRef.current) {
+      select(svgRef.current)
+        .transition()
+        .duration(300)
+        .call(zoomRef.current.scaleBy, 0.67);
+    }
+  }, []);
+
+  const handleResetView = useCallback(() => {
+    if (svgRef.current && zoomRef.current) {
+      const resetTransform = zoomIdentity.translate(
+        dimensions.width / 4,
+        dimensions.height / 2
+      );
+      select(svgRef.current)
+        .transition()
+        .duration(300)
+        .call(zoomRef.current.transform, resetTransform);
+    }
+  }, [dimensions]);
 
   const getLifespan = (person: Person) => {
     const birthDate = timestampToDate(person.birthDate);
@@ -96,7 +148,7 @@ export function FamilyTree({
   };
 
   return (
-    <div ref={containerRef} className="h-full w-full overflow-hidden">
+    <div ref={containerRef} className="relative h-full w-full overflow-hidden">
       <svg
         ref={svgRef}
         width={dimensions.width}
@@ -109,7 +161,9 @@ export function FamilyTree({
           </filter>
         </defs>
 
-        <g transform={`translate(${transform.x},${transform.y}) scale(${transform.k})`}>
+        <g
+          transform={`translate(${transform.x},${transform.y}) scale(${transform.k})`}
+        >
           {nodes.map(({ person, x, y }) => {
             const isSelected = selectedPersonId === person.id;
             const borderColor = getNodeColor(person);
@@ -180,31 +234,30 @@ export function FamilyTree({
                   {getLifespan(person)}
                 </text>
 
-                {/* Link icon */}
-                <Link href={`/person/${person.id}?tree=${treeId}`}>
-                  <g
-                    transform={`translate(${NODE_WIDTH - 28}, 8)`}
-                    className="opacity-0 transition-opacity group-hover:opacity-100"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <rect
-                      width={20}
-                      height={20}
-                      rx={4}
-                      fill="#F3F4F6"
-                      className="hover:fill-emerald-100"
-                    />
-                    <path
-                      d="M6 8l4 4-4 4M10 8h4"
-                      stroke="#6B7280"
-                      strokeWidth={1.5}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      fill="none"
-                      transform="translate(2, 2)"
-                    />
-                  </g>
-                </Link>
+                {/* Navigate icon — native SVG anchor */}
+                <g
+                  transform={`translate(${NODE_WIDTH - 28}, 8)`}
+                  className="opacity-0 transition-opacity group-hover:opacity-100"
+                  onClick={(e) => handleNavigateToPerson(e, person.id)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <rect
+                    width={20}
+                    height={20}
+                    rx={4}
+                    fill="#F3F4F6"
+                    className="hover:fill-emerald-100"
+                  />
+                  <path
+                    d="M6 8l4 4-4 4M10 8h4"
+                    stroke="#6B7280"
+                    strokeWidth={1.5}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    fill="none"
+                    transform="translate(2, 2)"
+                  />
+                </g>
               </g>
             );
           })}
@@ -214,58 +267,60 @@ export function FamilyTree({
       {/* Zoom controls */}
       <div className="absolute bottom-4 right-4 flex flex-col gap-2">
         <button
-          onClick={() => {
-            if (svgRef.current) {
-              const svg = d3.select(svgRef.current);
-              svg.transition().call(
-                d3.zoom<SVGSVGElement, unknown>().scaleBy,
-                1.5
-              );
-            }
-          }}
+          onClick={handleZoomIn}
           className="flex h-8 w-8 items-center justify-center rounded-lg bg-white shadow-md hover:bg-gray-50 dark:bg-gray-700 dark:hover:bg-gray-600"
           title="Zoom in"
         >
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 4v16m8-8H4"
+            />
           </svg>
         </button>
         <button
-          onClick={() => {
-            if (svgRef.current) {
-              const svg = d3.select(svgRef.current);
-              svg.transition().call(
-                d3.zoom<SVGSVGElement, unknown>().scaleBy,
-                0.67
-              );
-            }
-          }}
+          onClick={handleZoomOut}
           className="flex h-8 w-8 items-center justify-center rounded-lg bg-white shadow-md hover:bg-gray-50 dark:bg-gray-700 dark:hover:bg-gray-600"
           title="Zoom out"
         >
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M20 12H4"
+            />
           </svg>
         </button>
         <button
-          onClick={() => {
-            if (svgRef.current) {
-              const svg = d3.select(svgRef.current);
-              const initialTransform = d3.zoomIdentity.translate(
-                dimensions.width / 4,
-                dimensions.height / 2
-              );
-              svg.transition().call(
-                d3.zoom<SVGSVGElement, unknown>().transform,
-                initialTransform
-              );
-            }
-          }}
+          onClick={handleResetView}
           className="flex h-8 w-8 items-center justify-center rounded-lg bg-white shadow-md hover:bg-gray-50 dark:bg-gray-700 dark:hover:bg-gray-600"
           title="Reset view"
         >
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+            />
           </svg>
         </button>
       </div>

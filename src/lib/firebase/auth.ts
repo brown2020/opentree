@@ -19,12 +19,6 @@ import { auth, db } from './config';
 
 const googleProvider = new GoogleAuthProvider();
 
-// Email link configuration
-const actionCodeSettings = {
-  url: typeof window !== 'undefined' ? `${window.location.origin}/email-link` : '',
-  handleCodeInApp: true,
-};
-
 // ============ Email/Password Auth ============
 
 export async function signUp(
@@ -87,8 +81,15 @@ export async function signInWithGoogle(): Promise<FirebaseUser> {
 
 // ============ Email Link (Passwordless) Auth ============
 
+function getActionCodeSettings() {
+  return {
+    url: typeof window !== 'undefined' ? `${window.location.origin}/email-link` : '',
+    handleCodeInApp: true,
+  };
+}
+
 export async function sendEmailLinkSignIn(email: string): Promise<void> {
-  await sendSignInLinkToEmail(auth, email, actionCodeSettings);
+  await sendSignInLinkToEmail(auth, email, getActionCodeSettings());
   // Store email in localStorage for later retrieval
   if (typeof window !== 'undefined') {
     window.localStorage.setItem('emailForSignIn', email);

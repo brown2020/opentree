@@ -9,7 +9,8 @@ import {
   deleteTree,
 } from '@/lib/firebase/firestore';
 import { useAuth } from './useAuth';
-import type { Tree, TreeFormData } from '@/lib/types';
+import type { Tree } from '@/lib/types';
+import type { TreeSchemaFormData } from '@/lib/utils/validation';
 
 export function useTrees() {
   const { user } = useAuth();
@@ -41,7 +42,7 @@ export function useTrees() {
     fetchTrees();
   }, [fetchTrees]);
 
-  const create = async (data: TreeFormData): Promise<string | null> => {
+  const create = async (data: TreeSchemaFormData): Promise<string | null> => {
     if (!user) return null;
 
     try {
@@ -56,7 +57,7 @@ export function useTrees() {
 
   const update = async (
     treeId: string,
-    data: Partial<TreeFormData>
+    data: Partial<TreeSchemaFormData>
   ): Promise<boolean> => {
     try {
       await updateTree(treeId, data);
@@ -69,8 +70,10 @@ export function useTrees() {
   };
 
   const remove = async (treeId: string): Promise<boolean> => {
+    if (!user) return false;
+
     try {
-      await deleteTree(treeId);
+      await deleteTree(treeId, user.uid);
       await fetchTrees();
       return true;
     } catch (err) {

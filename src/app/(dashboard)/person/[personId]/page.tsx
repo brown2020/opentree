@@ -1,6 +1,8 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
+import Image from 'next/image';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { usePersonDetails } from '@/lib/hooks/usePerson';
@@ -8,7 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { timestampToDate } from '@/lib/firebase/firestore';
 
-export default function PersonDetailPage() {
+function PersonDetailContent() {
   const params = useParams();
   const searchParams = useSearchParams();
   const personId = params.personId as string;
@@ -73,9 +75,11 @@ export default function PersonDetailPage() {
       {/* Header */}
       <div className="mb-8 flex flex-col items-start gap-6 sm:flex-row sm:items-center">
         {person.profilePhotoUrl ? (
-          <img
+          <Image
             src={person.profilePhotoUrl}
             alt={`${person.firstName} ${person.lastName}`}
+            width={96}
+            height={96}
             className="h-24 w-24 rounded-full object-cover ring-4 ring-white shadow-lg dark:ring-gray-800"
           />
         ) : (
@@ -239,5 +243,19 @@ export default function PersonDetailPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function PersonDetailPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[50vh] items-center justify-center">
+          <LoadingSpinner size="lg" />
+        </div>
+      }
+    >
+      <PersonDetailContent />
+    </Suspense>
   );
 }

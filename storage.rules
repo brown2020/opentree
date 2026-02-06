@@ -1,0 +1,37 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Deny all access by default
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    // User-scoped files: users/{userId}/trees/{treeId}/persons/{personId}/...
+    match /users/{userId}/trees/{treeId}/persons/{personId}/{type}/{fileName} {
+
+      // Only the owning user can read their files
+      allow read: if request.auth != null && request.auth.uid == userId;
+
+      // Only the owning user can upload, with restrictions
+      allow create: if request.auth != null && request.auth.uid == userId
+        && validateFile(type);
+
+      // Only the owning user can delete their files
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    function validateFile(type) {
+      // Photos: max 10MB, image types only
+      return (type == 'photos'
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*'))
+      // Documents: max 25MB, PDF or image types
+      || (type == 'documents'
+        && request.resource.size < 25 * 1024 * 1024
+        && (request.resource.contentType.matches('image/.*')
+            || request.resource.contentType == 'application/pdf'));
+    }
+  }
+}

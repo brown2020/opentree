@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/Input';
 import { personSchema, type PersonSchemaFormData } from '@/lib/utils/validation';
 import type { Person } from '@/lib/types';
 import { timestampToDate } from '@/lib/firebase/firestore';
+import { toLocalDateString } from '@/lib/utils/dateFormat';
 
 interface PersonFormProps {
   person?: Person;
@@ -44,6 +45,7 @@ export function PersonForm({
     },
   });
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- watch() is inherently mutable; React Compiler correctly skips this component
   const isLiving = watch('isLiving');
 
   return (
@@ -122,12 +124,10 @@ export function PersonForm({
               </label>
               <input
                 type="date"
-                value={
-                  field.value ? field.value.toISOString().split('T')[0] : ''
-                }
+                value={field.value ? toLocalDateString(field.value) : ''}
                 onChange={(e) =>
                   field.onChange(
-                    e.target.value ? new Date(e.target.value) : null
+                    e.target.value ? new Date(e.target.value + 'T00:00:00') : null
                   )
                 }
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
@@ -154,12 +154,10 @@ export function PersonForm({
                 </label>
                 <input
                   type="date"
-                  value={
-                    field.value ? field.value.toISOString().split('T')[0] : ''
-                  }
+                  value={field.value ? toLocalDateString(field.value) : ''}
                   onChange={(e) =>
                     field.onChange(
-                      e.target.value ? new Date(e.target.value) : null
+                      e.target.value ? new Date(e.target.value + 'T00:00:00') : null
                     )
                   }
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"

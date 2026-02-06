@@ -40,9 +40,9 @@ export function useDocuments(treeId: string | null, personId: string | null) {
         orderBy('createdAt', 'desc')
       );
       const snapshot = await getDocs(q);
-      const data = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
+      const data = snapshot.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
       })) as Document[];
       setDocuments(data);
     } catch (err) {
@@ -65,33 +65,33 @@ export function useDocuments(treeId: string | null, personId: string | null) {
     if (!user || !treeId || !personId) return null;
 
     try {
-      // Create document first to get ID
-      const docRef = await addDoc(
-        collection(db, 'trees', treeId, 'persons', personId, 'documents'),
-        {
-          url: '',
-          name: data.name || file.name,
-          type: data.type,
-          description: data.description || null,
-          date: data.date ? Timestamp.fromDate(data.date) : null,
-          storagePath: '',
-          fileSize: file.size,
-          mimeType: file.type,
-          createdAt: serverTimestamp(),
-        }
-      );
+      // Generate a temporary ID for storage path
+      const tempId = crypto.randomUUID();
 
-      // Upload file
+      // Upload file to storage first (so we don't create orphaned Firestore docs)
       const { url, storagePath } = await uploadDocument(
         user.uid,
         treeId,
         personId,
         file,
-        docRef.id
+        tempId
       );
 
-      // Update document with URL
-      await updateDoc(docRef, { url, storagePath });
+      // Create Firestore document with the actual URL
+      const docRef = await addDoc(
+        collection(db, 'trees', treeId, 'persons', personId, 'documents'),
+        {
+          url,
+          name: data.name || file.name,
+          type: data.type,
+          description: data.description || null,
+          date: data.date ? Timestamp.fromDate(data.date) : null,
+          storagePath,
+          fileSize: file.size,
+          mimeType: file.type,
+          createdAt: serverTimestamp(),
+        }
+      );
 
       await fetchDocuments();
       return docRef.id;

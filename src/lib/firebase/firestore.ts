@@ -11,14 +11,17 @@ import {
   orderBy,
   serverTimestamp,
   Timestamp,
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from './config';
-import type { Tree, TreeFormData, Person, PersonFormData } from '@/lib/types';
+import { deletePersonFiles } from './storage';
+import type { Tree, Person } from '@/lib/types';
+import type { TreeSchemaFormData, PersonSchemaFormData } from '@/lib/utils/validation';
 
 // Tree operations
 export async function createTree(
   userId: string,
-  data: TreeFormData
+  data: TreeSchemaFormData
 ): Promise<string> {
   const docRef = await addDoc(collection(db, 'trees'), {
     userId,
@@ -44,12 +47,12 @@ export async function getUserTrees(userId: string): Promise<Tree[]> {
     orderBy('updatedAt', 'desc')
   );
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Tree);
+  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as Tree);
 }
 
 export async function updateTree(
   treeId: string,
-  data: Partial<TreeFormData>
+  data: Partial<TreeSchemaFormData>
 ): Promise<void> {
   await updateDoc(doc(db, 'trees', treeId), {
     ...data,
@@ -57,14 +60,63 @@ export async function updateTree(
   });
 }
 
-export async function deleteTree(treeId: string): Promise<void> {
+export async function deleteTree(
+  treeId: string,
+  userId: string
+): Promise<void> {
+  // First, delete all persons and their nested subcollections + storage files
+  const personsSnapshot = await getDocs(
+    collection(db, 'trees', treeId, 'persons')
+  );
+
+  for (const personDoc of personsSnapshot.docs) {
+    await deletePersonAndSubcollections(treeId, personDoc.id, userId);
+  }
+
+  // Finally, delete the tree document itself
   await deleteDoc(doc(db, 'trees', treeId));
+}
+
+async function deleteSubcollectionDocs(
+  parentPath: string,
+  subcollectionName: string
+): Promise<void> {
+  const snapshot = await getDocs(
+    collection(doc(db, parentPath), subcollectionName)
+  );
+  if (snapshot.empty) return;
+
+  const batch = writeBatch(db);
+  snapshot.docs.forEach((d) => batch.delete(d.ref));
+  await batch.commit();
+}
+
+async function deletePersonAndSubcollections(
+  treeId: string,
+  personId: string,
+  userId: string
+): Promise<void> {
+  const personPath = `trees/${treeId}/persons/${personId}`;
+
+  // Delete nested subcollections
+  await Promise.all([
+    deleteSubcollectionDocs(personPath, 'photos'),
+    deleteSubcollectionDocs(personPath, 'documents'),
+    deleteSubcollectionDocs(personPath, 'events'),
+    deleteSubcollectionDocs(personPath, 'relationships'),
+  ]);
+
+  // Delete storage files for this person
+  await deletePersonFiles(userId, treeId, personId);
+
+  // Delete the person document
+  await deleteDoc(doc(db, 'trees', treeId, 'persons', personId));
 }
 
 // Person operations
 export async function createPerson(
   treeId: string,
-  data: PersonFormData
+  data: PersonSchemaFormData
 ): Promise<string> {
   const docRef = await addDoc(collection(db, 'trees', treeId, 'persons'), {
     firstName: data.firstName,
@@ -96,13 +148,13 @@ export async function getPerson(
 
 export async function getTreePersons(treeId: string): Promise<Person[]> {
   const snapshot = await getDocs(collection(db, 'trees', treeId, 'persons'));
-  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Person);
+  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as Person);
 }
 
 export async function updatePerson(
   treeId: string,
   personId: string,
-  data: Partial<PersonFormData>
+  data: Partial<PersonSchemaFormData>
 ): Promise<void> {
   const updateData: Record<string, unknown> = {
     ...data,
@@ -125,9 +177,10 @@ export async function updatePerson(
 
 export async function deletePerson(
   treeId: string,
-  personId: string
+  personId: string,
+  userId: string
 ): Promise<void> {
-  await deleteDoc(doc(db, 'trees', treeId, 'persons', personId));
+  await deletePersonAndSubcollections(treeId, personId, userId);
 }
 
 // Helper to convert Firestore timestamp to Date

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/Button';
 import { FileUpload } from '@/components/ui/FileUpload';
@@ -101,10 +102,12 @@ export function PhotoGallery({ treeId, personId }: PhotoGalleryProps) {
               className="group relative aspect-square cursor-pointer overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800"
               onClick={() => setSelectedPhoto(photo)}
             >
-              <img
+              <Image
                 src={photo.url}
                 alt={photo.caption || 'Photo'}
-                className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                fill
+                className="object-cover transition-transform group-hover:scale-105"
+                sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
               />
               {photo.isProfilePhoto && (
                 <div className="absolute left-2 top-2 rounded-full bg-emerald-500 px-2 py-0.5 text-xs font-medium text-white">
@@ -146,6 +149,7 @@ export function PhotoGallery({ treeId, personId }: PhotoGalleryProps) {
             className="max-h-[80vh] max-w-4xl"
             onClick={(e) => e.stopPropagation()}
           >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={selectedPhoto.url}
               alt={selectedPhoto.caption || 'Photo'}
@@ -156,14 +160,14 @@ export function PhotoGallery({ treeId, personId }: PhotoGalleryProps) {
                 {selectedPhoto.caption && (
                   <p className="font-medium">{selectedPhoto.caption}</p>
                 )}
-                {selectedPhoto.date && (
-                  <p className="text-sm text-gray-300">
-                    {format(
-                      timestampToDate(selectedPhoto.date)!,
-                      'MMMM d, yyyy'
-                    )}
-                  </p>
-                )}
+                {selectedPhoto.date && (() => {
+                  const dateValue = timestampToDate(selectedPhoto.date);
+                  return dateValue ? (
+                    <p className="text-sm text-gray-300">
+                      {format(dateValue, 'MMMM d, yyyy')}
+                    </p>
+                  ) : null;
+                })()}
               </div>
               <div className="flex gap-2">
                 {!selectedPhoto.isProfilePhoto && (

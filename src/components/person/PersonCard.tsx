@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import type { Person } from '@/lib/types';
@@ -21,13 +22,13 @@ export function PersonCard({
   const birthDate = timestampToDate(person.birthDate);
   const deathDate = timestampToDate(person.deathDate);
 
-  const getLifespan = () => {
+  const lifespan = (() => {
     if (!birthDate) return null;
     const birth = format(birthDate, 'yyyy');
     if (person.isLiving) return `b. ${birth}`;
     if (deathDate) return `${birth} - ${format(deathDate, 'yyyy')}`;
     return `b. ${birth}`;
-  };
+  })();
 
   const initials =
     `${person.firstName?.[0] || ''}${person.lastName?.[0] || ''}`.toUpperCase() ||
@@ -54,9 +55,11 @@ export function PersonCard({
       `}
     >
       {person.profilePhotoUrl ? (
-        <img
+        <Image
           src={person.profilePhotoUrl}
           alt={`${person.firstName} ${person.lastName}`}
+          width={48}
+          height={48}
           className="h-12 w-12 rounded-full object-cover"
         />
       ) : (
@@ -78,9 +81,9 @@ export function PersonCard({
             <span className="text-gray-500"> (née {person.maidenName})</span>
           )}
         </Link>
-        {getLifespan() && (
+        {lifespan && (
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {getLifespan()}
+            {lifespan}
           </p>
         )}
       </div>

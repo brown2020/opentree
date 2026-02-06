@@ -28,6 +28,7 @@ export default function ForgotPasswordPage() {
     resolver: zodResolver(forgotPasswordSchema),
   });
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- watch() is inherently mutable; React Compiler correctly skips this component
   const emailValue = watch('email');
 
   const onSubmit = async (data: ForgotPasswordFormData) => {
