@@ -1,0 +1,357 @@
+'use client';
+
+import { useState, useCallback } from 'react';
+import { Modal } from '@/components/ui/Modal';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import type { Tree, TreeMember, MemberRole, Person, Relationship } from '@/lib/types';
+import { exportToGedcom, downloadGedcom } from '@/lib/utils/gedcom';
+
+type SettingsTab = 'general' | 'sharing' | 'gedcom';
+
+interface TreeSettingsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  tree: Tree;
+  persons: Person[];
+  relationships: Relationship[];
+  members: TreeMember[];
+  onUpdateTree: (data: { isPublic?: boolean }) => Promise<void>;
+  onAddMember: (email: string, role: MemberRole) => Promise<{ success: boolean; error?: string }>;
+  onRemoveMember: (userId: string) => Promise<boolean>;
+  onUpdateMemberRole: (userId: string, role: MemberRole) => Promise<boolean>;
+  onImportGedcom: (file: File) => Promise<void>;
+  isOwner: boolean;
+}
+
+export function TreeSettingsModal({
+  isOpen,
+  onClose,
+  tree,
+  persons,
+  relationships,
+  members,
+  onUpdateTree,
+  onAddMember,
+  onRemoveMember,
+  onUpdateMemberRole,
+  onImportGedcom,
+  isOwner,
+}: TreeSettingsModalProps) {
+  const [tab, setTab] = useState<SettingsTab>('general');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState<MemberRole>('viewer');
+  const [inviteError, setInviteError] = useState('');
+  const [isInviting, setIsInviting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [isTogglingPublic, setIsTogglingPublic] = useState(false);
+
+  const handleExport = useCallback(() => {
+    setIsExporting(true);
+    try {
+      const content = exportToGedcom(tree.name, persons, relationships);
+      const filename = tree.name.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+      downloadGedcom(content, `${filename}.ged`);
+    } finally {
+      setIsExporting(false);
+    }
+  }, [tree.name, persons, relationships]);
+
+  const handleImport = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      setIsImporting(true);
+      try {
+        await onImportGedcom(file);
+        onClose();
+      } catch {
+        // Error handled by parent
+      } finally {
+        setIsImporting(false);
+      }
+    },
+    [onImportGedcom, onClose]
+  );
+
+  const handleInvite = async () => {
+    if (!inviteEmail.trim()) return;
+
+    setIsInviting(true);
+    setInviteError('');
+
+    const result = await onAddMember(inviteEmail.trim(), inviteRole);
+    if (result.success) {
+      setInviteEmail('');
+    } else {
+      setInviteError(result.error || 'Failed to add member');
+    }
+
+    setIsInviting(false);
+  };
+
+  const handleTogglePublic = async () => {
+    setIsTogglingPublic(true);
+    await onUpdateTree({ isPublic: !tree.isPublic });
+    setIsTogglingPublic(false);
+  };
+
+  const tabs: { value: SettingsTab; label: string }[] = [
+    { value: 'general', label: 'Privacy' },
+    { value: 'sharing', label: 'Sharing' },
+    { value: 'gedcom', label: 'Import / Export' },
+  ];
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Tree Settings" size="lg">
+      <div className="space-y-4">
+        {/* Tab navigation */}
+        <div className="flex border-b border-gray-200 dark:border-gray-700">
+          {tabs.map((t) => (
+            <button
+              key={t.value}
+              onClick={() => setTab(t.value)}
+              className={`border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+                tab === t.value
+                  ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Privacy tab */}
+        {tab === 'general' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+              <div>
+                <h3 className="font-medium text-gray-900 dark:text-gray-100">
+                  Public Tree
+                </h3>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  {tree.isPublic
+                    ? 'Anyone with the link can view this tree. Living persons are hidden.'
+                    : 'Only you and invited members can see this tree.'}
+                </p>
+              </div>
+              <button
+                onClick={handleTogglePublic}
+                disabled={!isOwner || isTogglingPublic}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  tree.isPublic ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'
+                } ${!isOwner ? 'cursor-not-allowed opacity-50' : ''}`}
+              >
+                <span
+                  className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 ease-in-out ${
+                    tree.isPublic ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {!isOwner && (
+              <p className="text-xs text-gray-400">
+                Only the tree owner can change privacy settings.
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Sharing tab */}
+        {tab === 'sharing' && (
+          <div className="space-y-4">
+            {isOwner && (
+              <div className="space-y-3">
+                <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  Invite Member
+                </h3>
+                <div className="flex gap-2">
+                  <Input
+                    type="email"
+                    placeholder="Email address"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    className="flex-1"
+                  />
+                  <select
+                    value={inviteRole}
+                    onChange={(e) =>
+                      setInviteRole(e.target.value as MemberRole)
+                    }
+                    className="rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                  >
+                    <option value="viewer">Viewer</option>
+                    <option value="editor">Editor</option>
+                  </select>
+                  <Button onClick={handleInvite} loading={isInviting}>
+                    Invite
+                  </Button>
+                </div>
+                {inviteError && (
+                  <p className="text-sm text-red-500">{inviteError}</p>
+                )}
+              </div>
+            )}
+
+            {/* Members list */}
+            <div>
+              <h3 className="mb-2 text-sm font-medium text-gray-900 dark:text-gray-100">
+                Members ({members.length})
+              </h3>
+              {members.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-gray-200 px-4 py-6 text-center text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                  No members yet. Invite someone to collaborate.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {members.map((member) => (
+                    <div
+                      key={member.id}
+                      className="flex items-center justify-between rounded-lg border border-gray-200 px-4 py-3 dark:border-gray-700"
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                          {member.displayName || member.email}
+                        </p>
+                        {member.displayName && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {member.email}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {isOwner ? (
+                          <>
+                            <select
+                              value={member.role}
+                              onChange={(e) =>
+                                onUpdateMemberRole(
+                                  member.userId,
+                                  e.target.value as MemberRole
+                                )
+                              }
+                              className="rounded border border-gray-200 px-2 py-1 text-xs dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                            >
+                              <option value="viewer">Viewer</option>
+                              <option value="editor">Editor</option>
+                            </select>
+                            <button
+                              onClick={() => onRemoveMember(member.userId)}
+                              className="text-red-500 hover:text-red-700"
+                              title="Remove member"
+                            >
+                              <svg
+                                className="h-4 w-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M6 18L18 6M6 6l12 12"
+                                />
+                              </svg>
+                            </button>
+                          </>
+                        ) : (
+                          <span className="rounded bg-gray-100 px-2 py-1 text-xs text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                            {member.role}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* GEDCOM tab */}
+        {tab === 'gedcom' && (
+          <div className="space-y-6">
+            {/* Export */}
+            <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+              <h3 className="font-medium text-gray-900 dark:text-gray-100">
+                Export GEDCOM
+              </h3>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Download your tree as a GEDCOM 5.5.1 file. This format is
+                compatible with most genealogy software.
+              </p>
+              <Button
+                className="mt-3"
+                onClick={handleExport}
+                loading={isExporting}
+                disabled={persons.length === 0}
+                variant="outline"
+              >
+                <svg
+                  className="-ml-1 mr-2 h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                  />
+                </svg>
+                Export to GEDCOM
+              </Button>
+              {persons.length === 0 && (
+                <p className="mt-2 text-xs text-gray-400">
+                  Add people to your tree before exporting.
+                </p>
+              )}
+            </div>
+
+            {/* Import */}
+            {isOwner && (
+              <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+                <h3 className="font-medium text-gray-900 dark:text-gray-100">
+                  Import GEDCOM
+                </h3>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  Import a GEDCOM file to add persons and relationships.
+                  Existing data in this tree will be kept.
+                </p>
+                <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                    />
+                  </svg>
+                  {isImporting ? 'Importing...' : 'Choose GEDCOM File'}
+                  <input
+                    type="file"
+                    accept=".ged,.gedcom"
+                    onChange={handleImport}
+                    disabled={isImporting}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </Modal>
+  );
+}

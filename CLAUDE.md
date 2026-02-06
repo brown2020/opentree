@@ -39,10 +39,10 @@ src/
 │   ├── (dashboard)/                   # Protected routes (auth required)
 │   │   ├── layout.tsx                 # AuthGuard + Sidebar + Header
 │   │   ├── error.tsx                  # Error boundary for dashboard routes
-│   │   ├── page.tsx                   # Dashboard — list of user's trees
-│   │   ├── tree/[treeId]/page.tsx     # Tree view — grid/tree of persons
+│   │   ├── page.tsx                   # Dashboard — owned + shared trees
+│   │   ├── tree/[treeId]/page.tsx     # Tree view — connected visualization + search + settings
 │   │   └── person/[personId]/
-│   │       ├── page.tsx               # Person detail (bio, links)
+│   │       ├── page.tsx               # Person detail (bio, relationships, links)
 │   │       ├── edit/page.tsx          # Edit person form
 │   │       ├── photos/page.tsx        # Photo gallery
 │   │       ├── documents/page.tsx     # Document list
@@ -60,16 +60,20 @@ src/
 │   ├── person/
 │   │   ├── AddPersonModal.tsx         # Modal wrapping PersonForm
 │   │   ├── DocumentList.tsx           # Document CRUD with file upload
-│   │   ├── PersonCard.tsx             # Person summary card (list view)
+│   │   ├── PersonCard.tsx             # Person summary card (list view) + add relationship button
 │   │   ├── PersonForm.tsx             # Add/edit person form with all fields
 │   │   ├── PhotoGallery.tsx           # Photo grid + lightbox + upload
 │   │   └── TimelineView.tsx           # Life events CRUD
 │   ├── providers/
 │   │   └── AuthProvider.tsx           # Firebase auth state → Zustand store
 │   ├── tree/
+│   │   ├── AddRelationshipModal.tsx   # Modal for adding parent/child/spouse relationships
 │   │   ├── CreateTreeModal.tsx        # Create tree form in modal
-│   │   ├── FamilyTree.tsx             # D3 SVG tree visualization with zoom/pan
-│   │   └── TreeCard.tsx               # Tree summary card for dashboard
+│   │   ├── FamilyTree.tsx             # D3 SVG connected tree visualization with zoom/pan
+│   │   ├── RelationshipCalculatorModal.tsx  # Calculate relationship between two persons
+│   │   ├── TreeCard.tsx               # Tree summary card for dashboard (with shared/public badges)
+│   │   ├── TreeSearch.tsx             # Search-as-you-type person finder
+│   │   └── TreeSettingsModal.tsx      # Privacy, sharing, GEDCOM import/export
 │   └── ui/
 │       ├── Button.tsx                 # Variant button (primary/secondary/outline/ghost/danger)
 │       ├── FileUpload.tsx             # Drag-and-drop file upload
@@ -82,28 +86,35 @@ src/
     ├── firebase/
     │   ├── config.ts                  # Firebase app initialization + exports (auth, db, storage)
     │   ├── auth.ts                    # Auth functions (signUp, signIn, signOut, Google, email link, etc.)
-    │   ├── firestore.ts              # Firestore CRUD (trees, persons) + cascade delete
+    │   ├── firestore.ts              # Firestore CRUD (trees, persons) + cascade delete + shared tree queries
+    │   ├── members.ts                # Tree member/collaboration CRUD (invite, remove, role update)
+    │   ├── relationships.ts          # Tree-level relationship CRUD + adjacency map builder
     │   └── storage.ts                # Storage upload/delete (photos, documents)
     ├── hooks/
     │   ├── useAuth.ts                # Auth state selector from Zustand
     │   ├── useDocuments.ts           # Document CRUD hook
+    │   ├── useMembers.ts             # Tree member management hook
     │   ├── usePerson.ts              # Person CRUD + detail hooks
     │   ├── usePhotos.ts              # Photo CRUD hook with batch profile setting
+    │   ├── useRelationships.ts       # Tree-level relationship CRUD hook
     │   ├── useTimeline.ts            # Timeline event CRUD hook
     │   └── useTree.ts                # Tree CRUD + detail hooks
     ├── stores/
     │   ├── authStore.ts              # User, emailVerified, loading, initialized
-    │   └── treeStore.ts              # currentTree, persons, selectedPersonId
+    │   └── treeStore.ts              # currentTree, persons, relationships, selectedPersonId, rootPersonId
     ├── types/
     │   ├── index.ts                  # Re-exports + User interface
     │   ├── person.ts                 # Person, Gender types
-    │   ├── tree.ts                   # Tree type
-    │   ├── relationship.ts           # Relationship, RelationshipType types
+    │   ├── tree.ts                   # Tree, TreeMember, MemberRole types
+    │   ├── relationship.ts           # Relationship type (parent-child | spouse) at tree level
     │   ├── event.ts                  # PersonEvent, EventType, EventFormData, EVENT_TYPE_LABELS
     │   └── media.ts                  # Photo, Document, DocumentType types + labels
     └── utils/
         ├── validation.ts             # Zod schemas (login, signup, tree, person) — single source of truth for form types
+        ├── familyTreeLayout.ts       # Generation-based family tree layout algorithm (BFS, couple centering)
         ├── treeLayout.ts             # getNodeColor, getNodeBackgroundColor
+        ├── gedcom.ts                 # GEDCOM 5.5.1 export/import (parse + generate + download)
+        ├── relationshipCalculator.ts # BFS-based relationship path calculator (cousin, in-law, etc.)
         └── dateFormat.ts             # toLocalDateString (timezone-safe date formatting)
 ```
 
@@ -136,7 +147,15 @@ users/{userId}
   - email, displayName, photoURL, createdAt, updatedAt
 
 trees/{treeId}
-  - userId, name, description, rootPersonId, createdAt, updatedAt
+  - userId, name, description, rootPersonId, isPublic, memberIds[], createdAt, updatedAt
+
+  ├── relationships/{relationshipId}     (tree-level, not per-person)
+  │     - type ('parent-child' | 'spouse'), person1Id, person2Id,
+  │       marriageDate, divorceDate, createdAt
+
+  ├── members/{memberId}                 (userId as doc ID)
+  │     - userId, email, displayName, role ('editor' | 'viewer'),
+  │       addedBy, addedAt
 
   └── persons/{personId}
         - firstName, lastName, middleName, maidenName, gender, birthDate,
@@ -149,15 +168,17 @@ trees/{treeId}
         ├── documents/{documentId}
         │     - url, name, type, description, date, storagePath, fileSize, mimeType, createdAt
 
-        ├── events/{eventId}
-        │     - type, title, description, date, endDate, place, createdAt
-
-        └── relationships/{relationshipId}
-              - type, relatedPersonId, startDate, endDate, createdAt
+        └── events/{eventId}
+              - type, title, description, date, endDate, place, createdAt
 ```
 
 ## Security Rules
-- **firestore.rules** — Auth enforced on every collection. Tree access scoped to owner via `isTreeOwner()` helper. Field/type validation on creates. Subcollection access inherits tree ownership check.
+- **firestore.rules** — Auth enforced on every collection. Three access levels:
+  - `isTreeOwner()` — full access to tree owner
+  - `canEditTree()` — owner + editor members can write
+  - `canAccessTree()` — owner + all members + public trees can read
+  - Field/type validation on creates. Subcollection access uses tree-level access checks.
+  - Users collection allows lookup by email for sharing invites.
 - **storage.rules** — Auth enforced, user-scoped paths (`users/{userId}/...`). Photos: 10MB max, images only. Documents: 25MB max, images + PDF.
 
 ## Auth Flows
@@ -168,34 +189,40 @@ trees/{treeId}
 5. **Auth state** — managed via `onAuthStateChanged` → Zustand store → `useAuth()` hook
 
 ## Current Features (what exists and works)
-- ✅ Authentication (email/password, Google, email link, email verification, password reset)
-- ✅ Dashboard showing all user's trees
-- ✅ Create/delete trees with confirmation
-- ✅ Tree view with D3 visualization (zoom, pan, grid layout) and list view toggle
-- ✅ Add/edit/delete persons with full biographical data
-- ✅ Photo upload, gallery, lightbox, set-as-profile, delete
-- ✅ Document upload with type classification, view, delete
-- ✅ Timeline events CRUD (birth, death, marriage, divorce, graduation, etc.)
-- ✅ Responsive layout with sidebar and mobile hamburger menu
-- ✅ Dark mode (system preference)
-- ✅ Form validation with Zod
-- ✅ Error boundaries on auth and dashboard route groups
+- Authentication (email/password, Google, email link, email verification, password reset)
+- Dashboard showing owned trees + trees shared with user
+- Create/delete trees with confirmation
+- Tree view with connected D3 family tree visualization (ancestors above, descendants below, spouses side-by-side, connecting lines) and list view toggle
+- Re-root tree on any person (click target icon on node)
+- Search within tree (real-time filtering by name)
+- Add/edit/delete persons with full biographical data
+- Relationship CRUD (add parent, add child, add spouse) with bidirectional linking
+- Relationship calculator (select two persons → shows relationship label like "1st Cousin")
+- Person detail page shows parents, spouses, children, siblings as clickable cards
+- Photo upload, gallery, lightbox, set-as-profile, delete
+- Document upload with type classification, view, delete
+- Timeline events CRUD (birth, death, marriage, divorce, graduation, etc.)
+- GEDCOM 5.5.1 export (download .ged file with all persons, families, and events)
+- GEDCOM 5.5.1 import (upload .ged file to populate tree with persons + relationships)
+- Sharing & collaboration (invite members by email, viewer/editor roles)
+- Privacy controls (public/private toggle — public trees are viewable by anyone with the link)
+- Tree settings modal (privacy, sharing, GEDCOM import/export)
+- Responsive layout with sidebar and mobile hamburger menu
+- Dark mode (system preference)
+- Form validation with Zod
+- Error boundaries on auth and dashboard route groups
 
-## Known Limitations / Missing Features
-- **No real relationship connections** — Persons exist in a tree but have no parent/child/spouse links. The relationships subcollection schema exists but nothing reads or writes it. The tree visualization is a flat grid, not a connected family tree.
-- **No GEDCOM import/export** — No standard genealogy data format support
-- **No sharing or collaboration** — Trees are single-user only. No invite system.
-- **No search** — Cannot search for persons within a tree or across trees
-- **No relationship calculator** — Cannot show how two people are related
-- **No privacy controls for trees** — All trees are private by default with no public sharing option
+## Known Limitations / Still Missing
+- **No living person hiding in public trees** — Public trees show all data; living person redaction not yet implemented
+- **No pending invite system** — Invites only work if the user already has an account
+- **No GEDCOM import preview** — Import creates persons/relationships immediately without showing a summary first
 - **No activity feed** — No history of changes or contributions
-- **No Firebase Admin SDK** — Everything runs client-side. No server-side validation beyond Firestore rules. No API routes or Server Actions.
+- **No Firebase Admin SDK** — Everything runs client-side. No server-side validation beyond Firestore rules.
 - **No middleware** — No server-side auth checking or route protection
-- **Tree visualization is a flat grid** — Not a connected family tree. Persons are arranged in a grid with no relationship lines.
-- **No onboarding** — New users see an empty dashboard with no guidance
-- **No data export** — No way to download tree data
+- **No onboarding wizard** — New users see an empty dashboard with no guided flow
+- **No full ZIP export** — GEDCOM export exists but no media-inclusive ZIP download
 - **No profile/settings page** — Users can't update their name, email, or photo
-- **d3-hierarchy is installed but unused** — Hierarchy layout code was removed as dead code
+- **No step-relationship inference** — Only biological relationships are tracked
 
 ## Conventions
 - **TypeScript First**: All files `.tsx` or `.ts`
@@ -207,16 +234,18 @@ trees/{treeId}
 - **State**: Zustand for global state, React state for local
 - **Dates**: Stored as Firestore Timestamps, converted with `timestampToDate()`. Date inputs use `toLocalDateString()` for timezone safety.
 - **Uploads**: Storage first, then Firestore doc (prevents orphaned records)
-- **Deletes**: Cascade delete subcollections + storage when deleting trees or persons
-- **Batch writes**: Used for atomic multi-document updates (e.g., setAsProfile)
+- **Deletes**: Cascade delete subcollections + storage + relationships when deleting trees or persons
+- **Batch writes**: Used for atomic multi-document updates (e.g., setAsProfile, member management)
+- **Relationships**: Stored at tree level (`trees/{treeId}/relationships/`), not per-person. One query loads all relationships for the entire tree.
 
 ## Key Patterns
 - **Auth Guards**: `AuthGuard` for protected routes, `GuestGuard` for auth pages
-- **Custom Hooks**: One hook per data type (useTree, usePerson, usePhotos, etc.)
+- **Custom Hooks**: One hook per data type (useTree, usePerson, usePhotos, useRelationships, useMembers, etc.)
 - **Modals**: Use `Modal` and `ConfirmModal` from UI components. Modal supports `size` prop (sm/md/lg).
 - **File Uploads**: Use `FileUpload` component with react-dropzone
 - **Suspense Boundaries**: All pages using `useSearchParams()` wrap content in `<Suspense>`
 - **Error Boundaries**: `error.tsx` files in `(auth)` and `(dashboard)` route groups
+- **Adjacency Map**: `buildAdjacencyMap()` in `relationships.ts` builds a per-person lookup of parents, children, and spouses from the flat relationship list. Used by tree layout, person detail, relationship calculator, and GEDCOM export.
 
 ## Development Notes
 - Run `npm run lint` before commits
@@ -225,3 +254,5 @@ trees/{treeId}
 - Use `serverTimestamp()` for createdAt/updatedAt fields
 - Person gender determines node color in tree visualization
 - Form data types are inferred from Zod schemas (`PersonSchemaFormData`, `TreeSchemaFormData`, etc.) — do not create duplicate manual interfaces
+- Relationships are stored at tree level (not per-person) to avoid N+1 queries
+- The `buildAdjacencyMap` function is the canonical way to resolve relationships into usable structures

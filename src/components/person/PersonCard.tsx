@@ -11,6 +11,7 @@ interface PersonCardProps {
   treeId: string;
   isSelected?: boolean;
   onClick?: () => void;
+  onAddRelationship?: () => void;
 }
 
 export function PersonCard({
@@ -18,6 +19,7 @@ export function PersonCard({
   treeId,
   isSelected,
   onClick,
+  onAddRelationship,
 }: PersonCardProps) {
   const birthDate = timestampToDate(person.birthDate);
   const deathDate = timestampToDate(person.deathDate);
@@ -46,7 +48,7 @@ export function PersonCard({
     <div
       onClick={onClick}
       className={`
-        flex cursor-pointer items-center gap-4 rounded-lg border p-4 transition-all
+        group flex cursor-pointer items-center gap-4 rounded-lg border p-4 transition-all
         ${
           isSelected
             ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20'
@@ -78,7 +80,7 @@ export function PersonCard({
         >
           {person.firstName} {person.lastName}
           {person.maidenName && (
-            <span className="text-gray-500"> (née {person.maidenName})</span>
+            <span className="text-gray-500"> (nee {person.maidenName})</span>
           )}
         </Link>
         {lifespan && (
@@ -88,11 +90,37 @@ export function PersonCard({
         )}
       </div>
 
-      {!person.isLiving && (
-        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-gray-700 dark:text-gray-400">
-          Deceased
-        </span>
-      )}
+      <div className="flex items-center gap-1">
+        {onAddRelationship && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onAddRelationship();
+            }}
+            className="rounded-lg p-1 text-gray-400 opacity-0 transition-opacity hover:bg-gray-100 hover:text-emerald-500 group-hover:opacity-100 dark:hover:bg-gray-700"
+            title="Add relationship"
+          >
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+              />
+            </svg>
+          </button>
+        )}
+        {!person.isLiving && (
+          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-gray-700 dark:text-gray-400">
+            Deceased
+          </span>
+        )}
+      </div>
     </div>
   );
 }

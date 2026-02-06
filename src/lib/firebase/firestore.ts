@@ -15,6 +15,8 @@ import {
 } from 'firebase/firestore';
 import { db } from './config';
 import { deletePersonFiles } from './storage';
+import { removePersonRelationships, deleteAllTreeRelationships } from './relationships';
+import { deleteAllTreeMembers } from './members';
 import type { Tree, Person } from '@/lib/types';
 import type { TreeSchemaFormData, PersonSchemaFormData } from '@/lib/utils/validation';
 
@@ -28,6 +30,8 @@ export async function createTree(
     name: data.name,
     description: data.description || '',
     rootPersonId: null,
+    isPublic: false,
+    memberIds: [],
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
@@ -50,9 +54,18 @@ export async function getUserTrees(userId: string): Promise<Tree[]> {
   return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as Tree);
 }
 
+export async function getSharedTrees(userId: string): Promise<Tree[]> {
+  const q = query(
+    collection(db, 'trees'),
+    where('memberIds', 'array-contains', userId)
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as Tree);
+}
+
 export async function updateTree(
   treeId: string,
-  data: Partial<TreeSchemaFormData>
+  data: Partial<TreeSchemaFormData> & { rootPersonId?: string | null; isPublic?: boolean }
 ): Promise<void> {
   await updateDoc(doc(db, 'trees', treeId), {
     ...data,
@@ -64,7 +77,7 @@ export async function deleteTree(
   treeId: string,
   userId: string
 ): Promise<void> {
-  // First, delete all persons and their nested subcollections + storage files
+  // Delete all persons and their nested subcollections + storage files
   const personsSnapshot = await getDocs(
     collection(db, 'trees', treeId, 'persons')
   );
@@ -72,6 +85,12 @@ export async function deleteTree(
   for (const personDoc of personsSnapshot.docs) {
     await deletePersonAndSubcollections(treeId, personDoc.id, userId);
   }
+
+  // Delete tree-level relationships and members
+  await Promise.all([
+    deleteAllTreeRelationships(treeId),
+    deleteAllTreeMembers(treeId),
+  ]);
 
   // Finally, delete the tree document itself
   await deleteDoc(doc(db, 'trees', treeId));
@@ -103,7 +122,6 @@ async function deletePersonAndSubcollections(
     deleteSubcollectionDocs(personPath, 'photos'),
     deleteSubcollectionDocs(personPath, 'documents'),
     deleteSubcollectionDocs(personPath, 'events'),
-    deleteSubcollectionDocs(personPath, 'relationships'),
   ]);
 
   // Delete storage files for this person
@@ -180,6 +198,8 @@ export async function deletePerson(
   personId: string,
   userId: string
 ): Promise<void> {
+  // Remove relationships referencing this person
+  await removePersonRelationships(treeId, personId);
   await deletePersonAndSubcollections(treeId, personId, userId);
 }
 

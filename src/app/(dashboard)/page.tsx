@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTrees } from '@/lib/hooks/useTree';
+import { useAuth } from '@/lib/hooks/useAuth';
+import { getSharedTrees } from '@/lib/firebase/firestore';
 import { Button } from '@/components/ui/Button';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { ConfirmModal } from '@/components/ui/Modal';
@@ -13,11 +15,35 @@ import type { TreeSchemaFormData } from '@/lib/utils/validation';
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const { trees, loading, error, create, remove } = useTrees();
+  const [sharedTrees, setSharedTrees] = useState<Tree[]>([]);
+  const [sharedLoading, setSharedLoading] = useState(true);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [deleteTree, setDeleteTree] = useState<Tree | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const fetchSharedTrees = useCallback(async () => {
+    if (!user) {
+      setSharedTrees([]);
+      setSharedLoading(false);
+      return;
+    }
+
+    try {
+      const data = await getSharedTrees(user.uid);
+      setSharedTrees(data);
+    } catch {
+      // Silently fail for shared trees
+    } finally {
+      setSharedLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchSharedTrees();
+  }, [fetchSharedTrees]);
 
   const handleCreateTree = async (data: TreeSchemaFormData) => {
     setIsCreating(true);
@@ -85,7 +111,7 @@ export default function DashboardPage() {
         </Button>
       </div>
 
-      {trees.length === 0 ? (
+      {trees.length === 0 && sharedTrees.length === 0 ? (
         <div className="flex min-h-[50vh] flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 p-12 dark:border-gray-600 dark:bg-gray-800/50">
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
             <svg
@@ -113,10 +139,33 @@ export default function DashboardPage() {
           </Button>
         </div>
       ) : (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {trees.map((tree) => (
-            <TreeCard key={tree.id} tree={tree} onDelete={setDeleteTree} />
-          ))}
+        <div className="space-y-8">
+          {/* Owned trees */}
+          {trees.length > 0 && (
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {trees.map((tree) => (
+                <TreeCard key={tree.id} tree={tree} onDelete={setDeleteTree} />
+              ))}
+            </div>
+          )}
+
+          {/* Shared trees */}
+          {!sharedLoading && sharedTrees.length > 0 && (
+            <div>
+              <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
+                Shared with Me
+              </h2>
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {sharedTrees.map((tree) => (
+                  <TreeCard
+                    key={tree.id}
+                    tree={tree}
+                    isShared
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

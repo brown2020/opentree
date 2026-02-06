@@ -20,23 +20,63 @@ service cloud.firestore {
             .hasOnly(['displayName', 'photoURL', 'updatedAt']);
     }
 
-    // Trees collection: only the owning user can access
+    // Allow looking up users by email (for sharing/invite feature)
+    match /users/{userId} {
+      allow list: if request.auth != null
+        && request.query.limit <= 1;
+    }
+
+    // Trees collection
     match /trees/{treeId} {
-      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      // Read: owner, members, or public
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid
+        || (resource.data.memberIds is list && request.auth.uid in resource.data.memberIds)
+        || resource.data.isPublic == true
+      );
+
       allow create: if request.auth != null
         && request.resource.data.userId == request.auth.uid
-        && request.resource.data.keys().hasAll(['userId', 'name', 'createdAt', 'updatedAt'])
+        && request.resource.data.keys().hasAll(['userId', 'name', 'isPublic', 'memberIds', 'createdAt', 'updatedAt'])
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
-        && request.resource.data.name.size() <= 100;
-      allow update: if request.auth != null && resource.data.userId == request.auth.uid
-        && request.resource.data.userId == resource.data.userId;
+        && request.resource.data.name.size() <= 100
+        && request.resource.data.isPublic is bool
+        && request.resource.data.memberIds is list;
+
+      allow update: if request.auth != null && (
+        resource.data.userId == request.auth.uid
+        || (resource.data.memberIds is list && request.auth.uid in resource.data.memberIds)
+      ) && request.resource.data.userId == resource.data.userId;
+
       allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+
+      // Members subcollection (only owner can manage)
+      match /members/{memberId} {
+        allow read: if request.auth != null && canAccessTree(treeId);
+        allow create: if request.auth != null && isTreeOwner(treeId)
+          && request.resource.data.keys().hasAll(['userId', 'email', 'role', 'addedBy', 'addedAt'])
+          && request.resource.data.role in ['editor', 'viewer'];
+        allow update: if request.auth != null && isTreeOwner(treeId);
+        allow delete: if request.auth != null && isTreeOwner(treeId);
+      }
+
+      // Tree-level relationships
+      match /relationships/{relationshipId} {
+        allow read: if request.auth != null && canAccessTree(treeId);
+        allow create: if request.auth != null && canEditTree(treeId)
+          && request.resource.data.keys().hasAll(['type', 'person1Id', 'person2Id', 'createdAt'])
+          && request.resource.data.type in ['parent-child', 'spouse']
+          && request.resource.data.person1Id is string
+          && request.resource.data.person2Id is string;
+        allow update: if request.auth != null && canEditTree(treeId);
+        allow delete: if request.auth != null && canEditTree(treeId);
+      }
 
       // Persons subcollection
       match /persons/{personId} {
-        allow read: if request.auth != null && isTreeOwner(treeId);
-        allow create: if request.auth != null && isTreeOwner(treeId)
+        allow read: if request.auth != null && canAccessTree(treeId);
+        allow create: if request.auth != null && canEditTree(treeId)
           && request.resource.data.keys().hasAll(['firstName', 'lastName', 'gender', 'isLiving', 'createdAt', 'updatedAt'])
           && request.resource.data.firstName is string
           && request.resource.data.firstName.size() > 0
@@ -44,57 +84,63 @@ service cloud.firestore {
           && request.resource.data.lastName.size() > 0
           && request.resource.data.gender in ['male', 'female', 'other', 'unknown']
           && request.resource.data.isLiving is bool;
-        allow update: if request.auth != null && isTreeOwner(treeId);
-        allow delete: if request.auth != null && isTreeOwner(treeId);
+        allow update: if request.auth != null && canEditTree(treeId);
+        allow delete: if request.auth != null && canEditTree(treeId);
 
         // Photos subcollection
         match /photos/{photoId} {
-          allow read: if request.auth != null && isTreeOwner(treeId);
-          allow create: if request.auth != null && isTreeOwner(treeId)
+          allow read: if request.auth != null && canAccessTree(treeId);
+          allow create: if request.auth != null && canEditTree(treeId)
             && request.resource.data.keys().hasAll(['url', 'storagePath', 'createdAt'])
             && request.resource.data.url is string
             && request.resource.data.storagePath is string;
-          allow update: if request.auth != null && isTreeOwner(treeId);
-          allow delete: if request.auth != null && isTreeOwner(treeId);
+          allow update: if request.auth != null && canEditTree(treeId);
+          allow delete: if request.auth != null && canEditTree(treeId);
         }
 
         // Documents subcollection
         match /documents/{documentId} {
-          allow read: if request.auth != null && isTreeOwner(treeId);
-          allow create: if request.auth != null && isTreeOwner(treeId)
+          allow read: if request.auth != null && canAccessTree(treeId);
+          allow create: if request.auth != null && canEditTree(treeId)
             && request.resource.data.keys().hasAll(['url', 'name', 'type', 'storagePath', 'fileSize', 'mimeType', 'createdAt'])
             && request.resource.data.name is string
             && request.resource.data.type in ['birth_certificate', 'death_certificate', 'marriage_certificate', 'census', 'military', 'immigration', 'other'];
-          allow update: if request.auth != null && isTreeOwner(treeId);
-          allow delete: if request.auth != null && isTreeOwner(treeId);
+          allow update: if request.auth != null && canEditTree(treeId);
+          allow delete: if request.auth != null && canEditTree(treeId);
         }
 
         // Events subcollection
         match /events/{eventId} {
-          allow read: if request.auth != null && isTreeOwner(treeId);
-          allow create: if request.auth != null && isTreeOwner(treeId)
+          allow read: if request.auth != null && canAccessTree(treeId);
+          allow create: if request.auth != null && canEditTree(treeId)
             && request.resource.data.keys().hasAll(['type', 'title', 'date', 'createdAt'])
             && request.resource.data.type in ['birth', 'death', 'marriage', 'divorce', 'graduation', 'immigration', 'military', 'occupation', 'residence', 'custom']
             && request.resource.data.title is string;
-          allow update: if request.auth != null && isTreeOwner(treeId);
-          allow delete: if request.auth != null && isTreeOwner(treeId);
-        }
-
-        // Relationships subcollection
-        match /relationships/{relationshipId} {
-          allow read: if request.auth != null && isTreeOwner(treeId);
-          allow create: if request.auth != null && isTreeOwner(treeId)
-            && request.resource.data.keys().hasAll(['type', 'relatedPersonId', 'createdAt'])
-            && request.resource.data.type in ['parent', 'child', 'spouse', 'sibling'];
-          allow update: if request.auth != null && isTreeOwner(treeId);
-          allow delete: if request.auth != null && isTreeOwner(treeId);
+          allow update: if request.auth != null && canEditTree(treeId);
+          allow delete: if request.auth != null && canEditTree(treeId);
         }
       }
     }
 
-    // Helper function to check if the requesting user owns the tree
+    // Helper: check if user owns the tree
     function isTreeOwner(treeId) {
       return get(/databases/$(database)/documents/trees/$(treeId)).data.userId == request.auth.uid;
+    }
+
+    // Helper: check if user can access the tree (owner, member, or public)
+    function canAccessTree(treeId) {
+      let tree = get(/databases/$(database)/documents/trees/$(treeId)).data;
+      return tree.userId == request.auth.uid
+        || request.auth.uid in tree.memberIds
+        || tree.isPublic == true;
+    }
+
+    // Helper: check if user can edit the tree (owner or editor member)
+    function canEditTree(treeId) {
+      let tree = get(/databases/$(database)/documents/trees/$(treeId)).data;
+      return tree.userId == request.auth.uid
+        || (request.auth.uid in tree.memberIds
+            && get(/databases/$(database)/documents/trees/$(treeId)/members/$(request.auth.uid)).data.role == 'editor');
     }
   }
 }
