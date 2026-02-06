@@ -61,6 +61,17 @@ service cloud.firestore {
         allow delete: if request.auth != null && isTreeOwner(treeId);
       }
 
+      // Activity subcollection
+      match /activity/{activityId} {
+        allow read: if request.auth != null && canAccessTree(treeId);
+        allow create: if request.auth != null && canEditTree(treeId)
+          && request.resource.data.keys().hasAll(['type', 'description', 'userId', 'timestamp'])
+          && request.resource.data.type is string
+          && request.resource.data.description is string
+          && request.resource.data.userId is string;
+        allow delete: if request.auth != null && isTreeOwner(treeId);
+      }
+
       // Tree-level relationships
       match /relationships/{relationshipId} {
         allow read: if request.auth != null && canAccessTree(treeId);
@@ -131,7 +142,7 @@ service cloud.firestore {
     function canAccessTree(treeId) {
       let tree = get(/databases/$(database)/documents/trees/$(treeId)).data;
       return tree.userId == request.auth.uid
-        || request.auth.uid in tree.memberIds
+        || (tree.memberIds is list && request.auth.uid in tree.memberIds)
         || tree.isPublic == true;
     }
 
@@ -139,7 +150,8 @@ service cloud.firestore {
     function canEditTree(treeId) {
       let tree = get(/databases/$(database)/documents/trees/$(treeId)).data;
       return tree.userId == request.auth.uid
-        || (request.auth.uid in tree.memberIds
+        || (tree.memberIds is list
+            && request.auth.uid in tree.memberIds
             && get(/databases/$(database)/documents/trees/$(treeId)/members/$(request.auth.uid)).data.role == 'editor');
     }
   }

@@ -17,6 +17,7 @@ import { db } from './config';
 import { deletePersonFiles } from './storage';
 import { removePersonRelationships, deleteAllTreeRelationships } from './relationships';
 import { deleteAllTreeMembers } from './members';
+import { deleteAllTreeActivity } from './activity';
 import type { Tree, Person } from '@/lib/types';
 import type { TreeSchemaFormData, PersonSchemaFormData } from '@/lib/utils/validation';
 
@@ -86,10 +87,11 @@ export async function deleteTree(
     await deletePersonAndSubcollections(treeId, personDoc.id, userId);
   }
 
-  // Delete tree-level relationships and members
+  // Delete tree-level relationships, members, and activity
   await Promise.all([
     deleteAllTreeRelationships(treeId),
     deleteAllTreeMembers(treeId),
+    deleteAllTreeActivity(treeId),
   ]);
 
   // Finally, delete the tree document itself

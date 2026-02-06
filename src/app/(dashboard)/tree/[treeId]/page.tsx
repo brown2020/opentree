@@ -6,10 +6,12 @@ import { useTreeDetails } from '@/lib/hooks/useTree';
 import { usePersons } from '@/lib/hooks/usePerson';
 import { useRelationships } from '@/lib/hooks/useRelationships';
 import { useMembers } from '@/lib/hooks/useMembers';
+import { useActivity } from '@/lib/hooks/useActivity';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useTreeStore } from '@/lib/stores/treeStore';
 import { createPerson, updateTree } from '@/lib/firebase/firestore';
 import { addRelationship } from '@/lib/firebase/relationships';
+import { logActivity } from '@/lib/firebase/activity';
 import { parseGedcom } from '@/lib/utils/gedcom';
 import { Button } from '@/components/ui/Button';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
@@ -21,6 +23,7 @@ import { TreeSearch } from '@/components/tree/TreeSearch';
 import { AddRelationshipModal } from '@/components/tree/AddRelationshipModal';
 import { TreeSettingsModal } from '@/components/tree/TreeSettingsModal';
 import { RelationshipCalculatorModal } from '@/components/tree/RelationshipCalculatorModal';
+import { ActivityFeed } from '@/components/tree/ActivityFeed';
 import type { Person, RelationshipType } from '@/lib/types';
 import type { PersonSchemaFormData } from '@/lib/utils/validation';
 
@@ -46,6 +49,7 @@ export default function TreePage() {
     updateRole: updateMemberRole,
   } = useMembers(treeId);
   const { persons, selectedPersonId, setSelectedPersonId } = useTreeStore();
+  const { refetch: refetchActivity } = useActivity(treeId);
 
   const [viewMode, setViewMode] = useState<ViewMode>('tree');
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -58,6 +62,7 @@ export default function TreePage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [calcOpen, setCalcOpen] = useState(false);
   const [rootPersonId, setRootPersonId] = useState<string | null>(null);
+  const [activityOpen, setActivityOpen] = useState(false);
 
   const isOwner = tree?.userId === user?.uid;
   const effectiveRoot = rootPersonId || tree?.rootPersonId || null;
@@ -67,14 +72,37 @@ export default function TreePage() {
     await create(data);
     setIsAdding(false);
     setAddModalOpen(false);
+
+    if (user) {
+      await logActivity(
+        treeId,
+        'person_added',
+        `Added ${data.firstName} ${data.lastName}`,
+        user.uid,
+        user.displayName
+      );
+      refetchActivity();
+    }
   };
 
   const handleDeletePerson = async () => {
     if (!deletePerson) return;
+    const name = `${deletePerson.firstName} ${deletePerson.lastName}`;
     setIsDeleting(true);
     await remove(deletePerson.id);
     setIsDeleting(false);
     setDeletePerson(null);
+
+    if (user) {
+      await logActivity(
+        treeId,
+        'person_deleted',
+        `Removed ${name}`,
+        user.uid,
+        user.displayName
+      );
+      refetchActivity();
+    }
   };
 
   const handleAddRelationship = async (
@@ -85,6 +113,20 @@ export default function TreePage() {
     setIsAddingRel(true);
     await addRel(type, person1Id, person2Id);
     setIsAddingRel(false);
+
+    if (user) {
+      const p1 = persons.find((p) => p.id === person1Id);
+      const p2 = persons.find((p) => p.id === person2Id);
+      const label = type === 'spouse' ? 'spouse' : 'parent-child';
+      await logActivity(
+        treeId,
+        'relationship_added',
+        `Added ${label} relationship: ${p1?.firstName || '?'} \u2194 ${p2?.firstName || '?'}`,
+        user.uid,
+        user.displayName
+      );
+      refetchActivity();
+    }
   };
 
   const handleOpenRelModal = (person: Person) => {
@@ -264,6 +306,19 @@ export default function TreePage() {
           {/* More menu */}
           <div className="flex gap-1">
             <button
+              onClick={() => setActivityOpen(!activityOpen)}
+              className={`rounded-lg p-2 transition-colors ${
+                activityOpen
+                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                  : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200'
+              }`}
+              title="Activity Feed"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </button>
+            <button
               onClick={() => setCalcOpen(true)}
               className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
               title="Relationship Calculator"
@@ -301,7 +356,8 @@ export default function TreePage() {
         </div>
       </div>
 
-      {/* Main content */}
+      {/* Main content + activity sidebar */}
+      <div className="flex flex-1 gap-4 overflow-hidden">
       <div className="flex-1 overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
         {persons.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center p-12">
@@ -367,6 +423,27 @@ export default function TreePage() {
         )}
       </div>
 
+      {/* Activity panel */}
+      {activityOpen && (
+        <div className="hidden w-72 shrink-0 overflow-y-auto rounded-xl border border-gray-200 bg-white p-4 lg:block dark:border-gray-700 dark:bg-gray-800">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+              Recent Activity
+            </h3>
+            <button
+              onClick={() => setActivityOpen(false)}
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <ActivityFeed treeId={treeId} />
+        </div>
+      )}
+      </div>
+
       {/* Modals */}
       <AddPersonModal
         isOpen={addModalOpen}
@@ -395,6 +472,7 @@ export default function TreePage() {
           }}
           person={relPerson}
           allPersons={persons}
+          existingRelationships={relationships}
           onAdd={handleAddRelationship}
           loading={isAddingRel}
         />

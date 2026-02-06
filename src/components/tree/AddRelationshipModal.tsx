@@ -1,16 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import type { Person, RelationshipType } from '@/lib/types';
+import type { Person, Relationship, RelationshipType } from '@/lib/types';
+import { timestampToDate } from '@/lib/firebase/firestore';
+import { buildAdjacencyMap } from '@/lib/firebase/relationships';
 
 interface AddRelationshipModalProps {
   isOpen: boolean;
   onClose: () => void;
   person: Person;
   allPersons: Person[];
+  existingRelationships?: Relationship[];
   onAdd: (
     type: RelationshipType,
     person1Id: string,
@@ -26,6 +29,7 @@ export function AddRelationshipModal({
   onClose,
   person,
   allPersons,
+  existingRelationships = [],
   onAdd,
   loading,
 }: AddRelationshipModalProps) {
@@ -33,8 +37,80 @@ export function AddRelationshipModal({
   const [selectedPersonId, setSelectedPersonId] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Build adjacency map for validation
+  const adj = useMemo(
+    () =>
+      buildAdjacencyMap(
+        allPersons.map((p) => p.id),
+        existingRelationships
+      ),
+    [allPersons, existingRelationships]
+  );
+
+  // Validate selected relationship for warnings
+  const validationWarning = useMemo((): string | null => {
+    if (!selectedPersonId) return null;
+
+    const selected = allPersons.find((p) => p.id === selectedPersonId);
+    if (!selected) return null;
+
+    const entry = adj.get(person.id);
+
+    // Check for duplicate relationships
+    if (action === 'add-parent' && entry?.parents.includes(selectedPersonId)) {
+      return `${selected.firstName} is already a parent of ${person.firstName}.`;
+    }
+    if (action === 'add-child' && entry?.children.includes(selectedPersonId)) {
+      return `${selected.firstName} is already a child of ${person.firstName}.`;
+    }
+    if (action === 'add-spouse' && entry?.spouses.includes(selectedPersonId)) {
+      return `${selected.firstName} is already a spouse of ${person.firstName}.`;
+    }
+
+    // Check max 2 parents
+    if (action === 'add-parent' && entry && entry.parents.length >= 2) {
+      return `${person.firstName} already has 2 parents. Adding more may create unexpected results.`;
+    }
+
+    // Check birth date logic: parent should be older than child
+    if (action === 'add-parent') {
+      const parentBirth = timestampToDate(selected.birthDate);
+      const childBirth = timestampToDate(person.birthDate);
+      if (parentBirth && childBirth && parentBirth >= childBirth) {
+        return `Warning: ${selected.firstName} (born ${parentBirth.getFullYear()}) is not older than ${person.firstName} (born ${childBirth.getFullYear()}).`;
+      }
+    }
+    if (action === 'add-child') {
+      const parentBirth = timestampToDate(person.birthDate);
+      const childBirth = timestampToDate(selected.birthDate);
+      if (parentBirth && childBirth && parentBirth >= childBirth) {
+        return `Warning: ${person.firstName} (born ${parentBirth.getFullYear()}) is not older than ${selected.firstName} (born ${childBirth.getFullYear()}).`;
+      }
+    }
+
+    // Check self-ancestor loop: make sure adding this parent doesn't create a cycle
+    if (action === 'add-parent') {
+      if (isAncestor(selectedPersonId, person.id, adj)) {
+        return `Cannot add: ${selected.firstName} is already a descendant of ${person.firstName}. This would create a loop.`;
+      }
+    }
+    if (action === 'add-child') {
+      if (isAncestor(person.id, selectedPersonId, adj)) {
+        return `Cannot add: ${person.firstName} is already a descendant of ${selected.firstName}. This would create a loop.`;
+      }
+    }
+
+    return null;
+  }, [selectedPersonId, action, person, allPersons, adj]);
+
+  const isBlockingWarning =
+    validationWarning?.startsWith('Cannot add') ||
+    validationWarning?.includes('already a parent') ||
+    validationWarning?.includes('already a child') ||
+    validationWarning?.includes('already a spouse');
+
   const handleSubmit = async () => {
-    if (!selectedPersonId) return;
+    if (!selectedPersonId || isBlockingWarning) return;
 
     let type: RelationshipType;
     let p1: string;
@@ -42,16 +118,14 @@ export function AddRelationshipModal({
 
     switch (action) {
       case 'add-parent':
-        // Selected person is parent of current person
         type = 'parent-child';
-        p1 = selectedPersonId; // parent
-        p2 = person.id; // child
+        p1 = selectedPersonId;
+        p2 = person.id;
         break;
       case 'add-child':
-        // Current person is parent of selected person
         type = 'parent-child';
-        p1 = person.id; // parent
-        p2 = selectedPersonId; // child
+        p1 = person.id;
+        p2 = selectedPersonId;
         break;
       case 'add-spouse':
         type = 'spouse';
@@ -71,7 +145,6 @@ export function AddRelationshipModal({
     onClose();
   };
 
-  // Filter out current person and filter by search
   const filteredPersons = allPersons.filter((p) => {
     if (p.id === person.id) return false;
     if (!searchQuery) return true;
@@ -116,7 +189,10 @@ export function AddRelationshipModal({
             {actions.map((a) => (
               <button
                 key={a.value}
-                onClick={() => setAction(a.value)}
+                onClick={() => {
+                  setAction(a.value);
+                  setSelectedPersonId('');
+                }}
                 className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                   action === a.value
                     ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:border-emerald-400 dark:bg-emerald-900/30 dark:text-emerald-400'
@@ -195,6 +271,28 @@ export function AddRelationshipModal({
           </div>
         </div>
 
+        {/* Validation warning */}
+        {validationWarning && (
+          <div
+            className={`rounded-lg border px-4 py-3 text-sm ${
+              isBlockingWarning
+                ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400'
+                : 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400'
+            }`}
+          >
+            <div className="flex items-start gap-2">
+              <svg className="mt-0.5 h-4 w-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fillRule="evenodd"
+                  d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              {validationWarning}
+            </div>
+          </div>
+        )}
+
         {/* Actions */}
         <div className="flex justify-end gap-3 pt-2">
           <Button variant="outline" onClick={handleClose} disabled={loading}>
@@ -203,7 +301,7 @@ export function AddRelationshipModal({
           <Button
             onClick={handleSubmit}
             loading={loading}
-            disabled={!selectedPersonId}
+            disabled={!selectedPersonId || !!isBlockingWarning}
           >
             Add Relationship
           </Button>
@@ -211,4 +309,32 @@ export function AddRelationshipModal({
       </div>
     </Modal>
   );
+}
+
+/**
+ * Check if `personId` is an ancestor of `targetId` (would create a cycle).
+ */
+function isAncestor(
+  personId: string,
+  targetId: string,
+  adj: ReturnType<typeof buildAdjacencyMap>
+): boolean {
+  const visited = new Set<string>();
+  const queue = [targetId];
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if (visited.has(current)) continue;
+    visited.add(current);
+
+    const entry = adj.get(current);
+    if (!entry) continue;
+
+    for (const parentId of entry.parents) {
+      if (parentId === personId) return true;
+      if (!visited.has(parentId)) queue.push(parentId);
+    }
+  }
+
+  return false;
 }

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import type { Tree, TreeMember, MemberRole, Person, Relationship } from '@/lib/types';
 import { exportToGedcom, downloadGedcom } from '@/lib/utils/gedcom';
+import { exportTreeAsZip } from '@/lib/utils/exportZip';
 
 type SettingsTab = 'general' | 'sharing' | 'gedcom';
 
@@ -44,6 +45,7 @@ export function TreeSettingsModal({
   const [inviteError, setInviteError] = useState('');
   const [isInviting, setIsInviting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isExportingZip, setIsExportingZip] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [isTogglingPublic, setIsTogglingPublic] = useState(false);
 
@@ -57,6 +59,15 @@ export function TreeSettingsModal({
       setIsExporting(false);
     }
   }, [tree.name, persons, relationships]);
+
+  const handleExportZip = useCallback(async () => {
+    setIsExportingZip(true);
+    try {
+      await exportTreeAsZip(tree.id, tree.name, persons, relationships);
+    } finally {
+      setIsExportingZip(false);
+    }
+  }, [tree.id, tree.name, persons, relationships]);
 
   const handleImport = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -312,6 +323,39 @@ export function TreeSettingsModal({
                   Add people to your tree before exporting.
                 </p>
               )}
+            </div>
+
+            {/* Full ZIP Export */}
+            <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+              <h3 className="font-medium text-gray-900 dark:text-gray-100">
+                Full Export (ZIP)
+              </h3>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Download everything — GEDCOM file plus all photos and documents
+                organized by person. Your complete tree, portable and backed up.
+              </p>
+              <Button
+                className="mt-3"
+                onClick={handleExportZip}
+                loading={isExportingZip}
+                disabled={persons.length === 0}
+                variant="outline"
+              >
+                <svg
+                  className="-ml-1 mr-2 h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
+                  />
+                </svg>
+                Export as ZIP
+              </Button>
             </div>
 
             {/* Import */}

@@ -15,6 +15,7 @@ Full-stack family tree application using Next.js, Firebase (Auth, Firestore, Sto
 - **Fonts**: Geist (via next/font/google)
 - **Date formatting**: date-fns
 - **File uploads**: react-dropzone
+- **ZIP generation**: JSZip (for full tree export with media)
 
 ## Commands
 ```bash
@@ -39,14 +40,15 @@ src/
 │   ├── (dashboard)/                   # Protected routes (auth required)
 │   │   ├── layout.tsx                 # AuthGuard + Sidebar + Header
 │   │   ├── error.tsx                  # Error boundary for dashboard routes
-│   │   ├── page.tsx                   # Dashboard — owned + shared trees
-│   │   ├── tree/[treeId]/page.tsx     # Tree view — connected visualization + search + settings
+│   │   ├── page.tsx                   # Dashboard — owned + shared trees + activity feeds
+│   │   ├── settings/page.tsx          # User profile, password, and theme settings
+│   │   ├── tree/[treeId]/page.tsx     # Tree view — connected visualization + search + settings + activity
 │   │   └── person/[personId]/
-│   │       ├── page.tsx               # Person detail (bio, relationships, links)
+│   │       ├── page.tsx               # Person detail — tabbed: Overview, Photos, Documents, Timeline
 │   │       ├── edit/page.tsx          # Edit person form
-│   │       ├── photos/page.tsx        # Photo gallery
-│   │       ├── documents/page.tsx     # Document list
-│   │       └── timeline/page.tsx      # Timeline events
+│   │       ├── photos/page.tsx        # Photo gallery (standalone route, also in tab)
+│   │       ├── documents/page.tsx     # Document list (standalone route, also in tab)
+│   │       └── timeline/page.tsx      # Timeline events (standalone route, also in tab)
 │   ├── layout.tsx                     # Root layout (fonts, AuthProvider)
 │   ├── globals.css                    # Tailwind import + CSS variables
 │   └── favicon.ico
@@ -67,7 +69,9 @@ src/
 │   ├── providers/
 │   │   └── AuthProvider.tsx           # Firebase auth state → Zustand store
 │   ├── tree/
-│   │   ├── AddRelationshipModal.tsx   # Modal for adding parent/child/spouse relationships
+│   │   ├── OnboardingWizard.tsx        # First-tree wizard (3-step: name, self, parents)
+│   │   ├── ActivityFeed.tsx           # Collapsible activity feed (per-tree recent changes)
+│   │   ├── AddRelationshipModal.tsx   # Modal for adding parent/child/spouse relationships (with validation)
 │   │   ├── CreateTreeModal.tsx        # Create tree form in modal
 │   │   ├── FamilyTree.tsx             # D3 SVG connected tree visualization with zoom/pan
 │   │   ├── RelationshipCalculatorModal.tsx  # Calculate relationship between two persons
@@ -88,12 +92,14 @@ src/
     │   ├── auth.ts                    # Auth functions (signUp, signIn, signOut, Google, email link, etc.)
     │   ├── firestore.ts              # Firestore CRUD (trees, persons) + cascade delete + shared tree queries
     │   ├── members.ts                # Tree member/collaboration CRUD (invite, remove, role update)
+│   ├── activity.ts               # Activity logging and retrieval (per-tree activity feed)
     │   ├── relationships.ts          # Tree-level relationship CRUD + adjacency map builder
     │   └── storage.ts                # Storage upload/delete (photos, documents)
     ├── hooks/
     │   ├── useAuth.ts                # Auth state selector from Zustand
     │   ├── useDocuments.ts           # Document CRUD hook
     │   ├── useMembers.ts             # Tree member management hook
+│   ├── useActivity.ts            # Activity feed hook (per-tree)
     │   ├── usePerson.ts              # Person CRUD + detail hooks
     │   ├── usePhotos.ts              # Photo CRUD hook with batch profile setting
     │   ├── useRelationships.ts       # Tree-level relationship CRUD hook
@@ -114,6 +120,7 @@ src/
         ├── familyTreeLayout.ts       # Generation-based family tree layout algorithm (BFS, couple centering)
         ├── treeLayout.ts             # getNodeColor, getNodeBackgroundColor
         ├── gedcom.ts                 # GEDCOM 5.5.1 export/import (parse + generate + download)
+        ├── exportZip.ts              # Full tree ZIP export (GEDCOM + all photos/documents)
         ├── relationshipCalculator.ts # BFS-based relationship path calculator (cousin, in-law, etc.)
         └── dateFormat.ts             # toLocalDateString (timezone-safe date formatting)
 ```
@@ -157,6 +164,9 @@ trees/{treeId}
   │     - userId, email, displayName, role ('editor' | 'viewer'),
   │       addedBy, addedAt
 
+  ├── activity/{activityId}              (per-tree activity log)
+  │     - type, description, userId, userDisplayName, personId?, timestamp
+
   └── persons/{personId}
         - firstName, lastName, middleName, maidenName, gender, birthDate,
           birthPlace, deathDate, deathPlace, isLiving, profilePhotoUrl, bio,
@@ -190,6 +200,7 @@ trees/{treeId}
 
 ## Current Features (what exists and works)
 - Authentication (email/password, Google, email link, email verification, password reset)
+- First-tree onboarding wizard (3-step guided flow: tree name, yourself, parents)
 - Dashboard showing owned trees + trees shared with user
 - Create/delete trees with confirmation
 - Tree view with connected D3 family tree visualization (ancestors above, descendants below, spouses side-by-side, connecting lines) and list view toggle
@@ -198,7 +209,9 @@ trees/{treeId}
 - Add/edit/delete persons with full biographical data
 - Relationship CRUD (add parent, add child, add spouse) with bidirectional linking
 - Relationship calculator (select two persons → shows relationship label like "1st Cousin")
-- Person detail page shows parents, spouses, children, siblings as clickable cards
+- Person detail page with tabbed layout: Overview (bio + facts + family), Photos, Documents, Timeline
+- Family section shows parents, spouses, children, siblings, step-parents, step-children, step-siblings
+- Relationship validation: prevents duplicates, cycle detection, age warnings
 - Photo upload, gallery, lightbox, set-as-profile, delete
 - Document upload with type classification, view, delete
 - Timeline events CRUD (birth, death, marriage, divorce, graduation, etc.)
@@ -206,9 +219,12 @@ trees/{treeId}
 - GEDCOM 5.5.1 import (upload .ged file to populate tree with persons + relationships)
 - Sharing & collaboration (invite members by email, viewer/editor roles)
 - Privacy controls (public/private toggle — public trees are viewable by anyone with the link)
-- Tree settings modal (privacy, sharing, GEDCOM import/export)
+- Tree settings modal (privacy, sharing, GEDCOM import/export, full ZIP export)
+- Activity feed per tree (collapsible panel on tree page, summary on dashboard)
+- User profile & settings page (display name, profile photo, password change, theme)
+- Full data export as ZIP (GEDCOM + all photos and documents per person)
 - Responsive layout with sidebar and mobile hamburger menu
-- Dark mode (system preference)
+- Dark mode (system/light/dark preference, persisted to localStorage)
 - Form validation with Zod
 - Error boundaries on auth and dashboard route groups
 
@@ -216,13 +232,9 @@ trees/{treeId}
 - **No living person hiding in public trees** — Public trees show all data; living person redaction not yet implemented
 - **No pending invite system** — Invites only work if the user already has an account
 - **No GEDCOM import preview** — Import creates persons/relationships immediately without showing a summary first
-- **No activity feed** — No history of changes or contributions
 - **No Firebase Admin SDK** — Everything runs client-side. No server-side validation beyond Firestore rules.
 - **No middleware** — No server-side auth checking or route protection
-- **No onboarding wizard** — New users see an empty dashboard with no guided flow
-- **No full ZIP export** — GEDCOM export exists but no media-inclusive ZIP download
-- **No profile/settings page** — Users can't update their name, email, or photo
-- **No step-relationship inference** — Only biological relationships are tracked
+- **Step-relationships are inferred, not stored** — Step-parents, step-children, and step-siblings are computed from the relationship graph at display time
 
 ## Conventions
 - **TypeScript First**: All files `.tsx` or `.ts`

@@ -77,7 +77,7 @@ Things Ancestry has that we're missing entirely. Must add to be a credible famil
 
 Things we both have (or will have) but where we can do better than Ancestry.
 
-### 2.1 Onboarding Flow
+### 2.1 Onboarding Flow ✅ DONE
 - **What we have**: Empty dashboard, no guidance.
 - **What Ancestry does**: Multi-step wizard starting with yourself, then parents, then grandparents.
 - **What we'll build**:
@@ -88,7 +88,7 @@ Things we both have (or will have) but where we can do better than Ancestry.
     4. Tree is created with you as root person, parents linked
   - **This replaces the current empty dashboard state**. After completing the wizard (or skipping it), the user sees their tree.
 
-### 2.2 Person Detail Page
+### 2.2 Person Detail Page ✅ DONE
 - **What we have**: Basic bio display with links to photos/documents/timeline as separate pages.
 - **What Ancestry does**: Rich person page with facts, sources, photos, family members, hints — all on one page with tabs.
 - **What we'll build**:
@@ -105,7 +105,7 @@ Things we both have (or will have) but where we can do better than Ancestry.
   - **Minimap or zoom indicator**: Show current zoom level and a reset button (already have reset).
   - **Responsive nodes**: Person nodes show name, lifespan, and a small avatar. Selected node is highlighted.
 
-### 2.4 Activity Feed
+### 2.4 Activity Feed ✅ DONE
 - **What we have**: Nothing.
 - **What Ancestry does**: Shows recent changes to the tree.
 - **What we'll build**:
@@ -123,20 +123,20 @@ Things we can do that Ancestry doesn't, or ways we can be meaningfully better.
 - No subscription tiers, no paywalls, no upsells. Every feature available to every user.
 - This is not a feature to build — it's a positioning choice that's already made.
 
-### 3.2 Full Data Export (Including Media)
+### 3.2 Full Data Export (Including Media) ✅ DONE
 - **What Ancestry does**: GEDCOM export (text only, no photos/documents).
 - **What we'll build**:
   - **Full tree export**: Download a ZIP file containing the GEDCOM file plus all photos and documents organized in folders per person.
   - **This directly exploits Ancestry's #1 complaint**: losing access to records and media when you cancel.
 
-### 3.3 Smart Relationship Inference
+### 3.3 Smart Relationship Inference ✅ DONE
 - **What Ancestry does**: Manually define every relationship.
 - **What we'll build**:
   - **Auto-infer siblings**: If Person A and Person B share a parent, they're siblings. Display this automatically without storing a separate sibling relationship.
   - **Auto-infer step-relationships**: If Parent A has a spouse B, and B is not the biological parent of A's children, show B as step-parent.
   - **Relationship validation**: Warn if a relationship creates an impossible situation (e.g., someone being their own ancestor, birth date after death date of a parent).
 
-### 3.4 User Profile & Settings
+### 3.4 User Profile & Settings ✅ DONE
 - **What we have**: No profile or settings page.
 - **What we'll build**:
   - **Profile page**: Update display name and profile photo. View email (read-only). Change password (for email/password users).
