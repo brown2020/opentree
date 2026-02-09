@@ -36,8 +36,22 @@ export function useRelationships(treeId: string | null) {
   }, [treeId]);
 
   useEffect(() => {
-    fetchRelationships();
-  }, [fetchRelationships]);
+    let cancelled = false;
+    (async () => {
+      if (!treeId) { setRelationships([]); setLoading(false); return; }
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await getTreeRelationships(treeId);
+        if (!cancelled) setRelationships(data);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to fetch relationships');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [treeId]);
 
   const add = async (
     type: RelationshipType,

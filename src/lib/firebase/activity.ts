@@ -6,9 +6,9 @@ import {
   orderBy,
   limit,
   serverTimestamp,
-  writeBatch,
 } from 'firebase/firestore';
 import { db } from './config';
+import { batchDeleteDocs } from './firestore';
 import type { Activity, ActivityType } from '@/lib/types/activity';
 
 /**
@@ -58,8 +58,5 @@ export async function deleteAllTreeActivity(
     collection(db, 'trees', treeId, 'activity')
   );
   if (snapshot.empty) return;
-
-  const batch = writeBatch(db);
-  snapshot.docs.forEach((d) => batch.delete(d.ref));
-  await batch.commit();
+  await batchDeleteDocs(snapshot.docs.map((d) => d.ref));
 }

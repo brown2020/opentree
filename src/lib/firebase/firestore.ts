@@ -12,6 +12,7 @@ import {
   serverTimestamp,
   Timestamp,
   writeBatch,
+  type DocumentReference,
 } from 'firebase/firestore';
 import { db } from './config';
 import { deletePersonFiles } from './storage';
@@ -20,6 +21,23 @@ import { deleteAllTreeMembers } from './members';
 import { deleteAllTreeActivity } from './activity';
 import type { Tree, Person } from '@/lib/types';
 import type { TreeSchemaFormData, PersonSchemaFormData } from '@/lib/utils/validation';
+
+// Firestore batches are limited to 500 operations
+const BATCH_LIMIT = 500;
+
+/**
+ * Delete an array of document references in chunked batches of 500.
+ */
+export async function batchDeleteDocs(
+  refs: DocumentReference[]
+): Promise<void> {
+  for (let i = 0; i < refs.length; i += BATCH_LIMIT) {
+    const chunk = refs.slice(i, i + BATCH_LIMIT);
+    const batch = writeBatch(db);
+    chunk.forEach((ref) => batch.delete(ref));
+    await batch.commit();
+  }
+}
 
 // Tree operations
 export async function createTree(
@@ -106,10 +124,7 @@ async function deleteSubcollectionDocs(
     collection(doc(db, parentPath), subcollectionName)
   );
   if (snapshot.empty) return;
-
-  const batch = writeBatch(db);
-  snapshot.docs.forEach((d) => batch.delete(d.ref));
-  await batch.commit();
+  await batchDeleteDocs(snapshot.docs.map((d) => d.ref));
 }
 
 async function deletePersonAndSubcollections(

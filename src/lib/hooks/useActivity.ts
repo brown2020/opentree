@@ -27,8 +27,21 @@ export function useActivity(treeId: string | null, maxItems = 20) {
   }, [treeId, maxItems]);
 
   useEffect(() => {
-    fetchActivity();
-  }, [fetchActivity]);
+    let cancelled = false;
+    (async () => {
+      if (!treeId) { setActivities([]); setLoading(false); return; }
+      setLoading(true);
+      try {
+        const data = await getTreeActivity(treeId, maxItems);
+        if (!cancelled) setActivities(data);
+      } catch {
+        // Activity feed is non-critical
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [treeId, maxItems]);
 
   return { activities, loading, refetch: fetchActivity };
 }

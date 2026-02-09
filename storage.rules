@@ -8,11 +8,24 @@ service firebase.storage {
       allow read, write: if false;
     }
 
-    // User-scoped files: users/{userId}/trees/{treeId}/persons/{personId}/...
+    // Profile photos: users/{userId}/profile/{fileName}
+    match /users/{userId}/profile/{fileName} {
+      // Any authenticated user can read profile photos (needed for avatars)
+      allow read: if request.auth != null;
+
+      // Only the owning user can upload/delete, image only, max 5MB
+      allow create: if request.auth != null && request.auth.uid == userId
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Tree media files: users/{userId}/trees/{treeId}/persons/{personId}/{type}/{fileName}
     match /users/{userId}/trees/{treeId}/persons/{personId}/{type}/{fileName} {
 
-      // Only the owning user can read their files
-      allow read: if request.auth != null && request.auth.uid == userId;
+      // Any authenticated user can read (Firestore rules protect URL references;
+      // shared tree members need to view photos/documents)
+      allow read: if request.auth != null;
 
       // Only the owning user can upload, with restrictions
       allow create: if request.auth != null && request.auth.uid == userId

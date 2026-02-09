@@ -40,8 +40,9 @@ export function FamilyTree({
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const zoomRef = useRef<ZoomBehavior<SVGSVGElement, unknown> | null>(null);
-  const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [transform, setTransform] = useState(zoomIdentity);
+  const dimensionsReady = dimensions.width > 0 && dimensions.height > 0;
 
   // Compute the tree layout
   const effectiveRoot =
@@ -69,9 +70,9 @@ export function FamilyTree({
     return () => window.removeEventListener('resize', updateDimensions);
   }, []);
 
-  // Set up zoom behavior once
+  // Set up zoom behavior once dimensions are known
   useEffect(() => {
-    if (!svgRef.current) return;
+    if (!svgRef.current || !dimensionsReady) return;
 
     const svg = select(svgRef.current);
     const zoomBehavior = d3Zoom<SVGSVGElement, unknown>()
@@ -94,7 +95,7 @@ export function FamilyTree({
       svg.on('.zoom', null);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [dimensionsReady]);
 
   // Re-center when root changes
   useEffect(() => {
@@ -423,15 +424,17 @@ export function FamilyTree({
       </div>
 
       {/* Root person indicator */}
-      {effectiveRoot && (
-        <div className="absolute left-4 top-4 rounded-lg bg-white/90 px-3 py-1.5 text-xs font-medium text-gray-600 shadow-sm backdrop-blur dark:bg-gray-800/90 dark:text-gray-300">
-          Centered on:{' '}
-          <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-            {persons.find((p) => p.id === effectiveRoot)?.firstName}{' '}
-            {persons.find((p) => p.id === effectiveRoot)?.lastName}
-          </span>
-        </div>
-      )}
+      {effectiveRoot && (() => {
+        const rootPerson = persons.find((p) => p.id === effectiveRoot);
+        return rootPerson ? (
+          <div className="absolute left-4 top-4 rounded-lg bg-white/90 px-3 py-1.5 text-xs font-medium text-gray-600 shadow-sm backdrop-blur dark:bg-gray-800/90 dark:text-gray-300">
+            Centered on:{' '}
+            <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+              {rootPerson.firstName} {rootPerson.lastName}
+            </span>
+          </div>
+        ) : null;
+      })()}
 
       {/* Legend */}
       <div className="absolute bottom-4 left-4 flex items-center gap-4 rounded-lg bg-white/90 px-3 py-1.5 text-xs text-gray-500 shadow-sm backdrop-blur dark:bg-gray-800/90 dark:text-gray-400">

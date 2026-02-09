@@ -2,21 +2,7 @@ import JSZip from 'jszip';
 import { getDocs, collection } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { exportToGedcom } from './gedcom';
-import type { Person, Relationship } from '@/lib/types';
-
-interface PhotoDoc {
-  id: string;
-  url: string;
-  fileName: string;
-  personId?: string;
-}
-
-interface DocumentDoc {
-  id: string;
-  url: string;
-  fileName: string;
-  personId?: string;
-}
+import type { Person, Relationship, Photo, Document as DocType } from '@/lib/types';
 
 /**
  * Export a tree as a ZIP file containing:
@@ -54,7 +40,7 @@ export async function exportTreeAsZip(
           );
 
           for (const photoDoc of photosSnapshot.docs) {
-            const data = photoDoc.data() as PhotoDoc;
+            const data = { id: photoDoc.id, ...photoDoc.data() } as Photo;
             if (!data.url) continue;
 
             try {
@@ -62,7 +48,9 @@ export async function exportTreeAsZip(
               if (!response.ok) continue;
 
               const blob = await response.blob();
-              const fileName = data.fileName || `photo_${photoDoc.id}.jpg`;
+              const fileName = data.caption
+                ? `${data.caption.replace(/[^a-zA-Z0-9_-]/g, '_')}_${photoDoc.id}.jpg`
+                : `photo_${photoDoc.id}.jpg`;
               zip.file(`photos/${personFolder}/${fileName}`, blob);
             } catch {
               // Skip files that can't be fetched
@@ -83,7 +71,7 @@ export async function exportTreeAsZip(
           );
 
           for (const docItem of docsSnapshot.docs) {
-            const data = docItem.data() as DocumentDoc;
+            const data = { id: docItem.id, ...docItem.data() } as DocType;
             if (!data.url) continue;
 
             try {
@@ -91,7 +79,10 @@ export async function exportTreeAsZip(
               if (!response.ok) continue;
 
               const blob = await response.blob();
-              const fileName = data.fileName || `document_${docItem.id}.pdf`;
+              const ext = data.mimeType === 'application/pdf' ? 'pdf' : 'jpg';
+              const fileName = data.name
+                ? `${data.name.replace(/[^a-zA-Z0-9_.-]/g, '_')}`
+                : `document_${docItem.id}.${ext}`;
               zip.file(`documents/${personFolder}/${fileName}`, blob);
             } catch {
               // Skip files that can't be fetched

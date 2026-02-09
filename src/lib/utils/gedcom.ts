@@ -30,7 +30,7 @@ export function exportToGedcom(
     spouse1: string;
     spouse2: string;
     children: string[];
-    rel: Relationship;
+    rel: Relationship | null;
   }[] = [];
 
   const spouseRels = relationships.filter((r) => r.type === 'spouse');
@@ -84,7 +84,7 @@ export function exportToGedcom(
       spouse1: parent?.gender === 'female' ? '' : parentId,
       spouse2: parent?.gender === 'female' ? parentId : '',
       children,
-      rel: null as unknown as Relationship,
+      rel: null,
     });
   }
 

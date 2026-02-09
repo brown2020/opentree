@@ -53,8 +53,30 @@ export function usePhotos(treeId: string | null, personId: string | null) {
   }, [treeId, personId]);
 
   useEffect(() => {
-    fetchPhotos();
-  }, [fetchPhotos]);
+    let cancelled = false;
+    (async () => {
+      if (!treeId || !personId) { setPhotos([]); setLoading(false); return; }
+      setLoading(true);
+      setError(null);
+      try {
+        const q = query(
+          collection(db, 'trees', treeId, 'persons', personId, 'photos'),
+          orderBy('createdAt', 'desc')
+        );
+        const snapshot = await getDocs(q);
+        const data = snapshot.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+        })) as Photo[];
+        if (!cancelled) setPhotos(data);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to fetch photos');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [treeId, personId]);
 
   const upload = async (
     file: File,

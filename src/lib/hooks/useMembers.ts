@@ -39,8 +39,22 @@ export function useMembers(treeId: string | null) {
   }, [treeId]);
 
   useEffect(() => {
-    fetchMembers();
-  }, [fetchMembers]);
+    let cancelled = false;
+    (async () => {
+      if (!treeId) { setMembers([]); setLoading(false); return; }
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await getTreeMembers(treeId);
+        if (!cancelled) setMembers(data);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to fetch members');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [treeId]);
 
   const add = async (
     email: string,

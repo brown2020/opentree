@@ -7,10 +7,10 @@ import {
   query,
   where,
   serverTimestamp,
-  writeBatch,
   Timestamp,
 } from 'firebase/firestore';
 import { db } from './config';
+import { batchDeleteDocs } from './firestore';
 import type { Relationship, RelationshipType } from '@/lib/types';
 
 /**
@@ -78,10 +78,7 @@ export async function removePersonRelationships(
 
   const allDocs = [...q1.docs, ...q2.docs];
   if (allDocs.length === 0) return;
-
-  const batch = writeBatch(db);
-  allDocs.forEach((d) => batch.delete(d.ref));
-  await batch.commit();
+  await batchDeleteDocs(allDocs.map((d) => d.ref));
 }
 
 /**
@@ -94,10 +91,7 @@ export async function deleteAllTreeRelationships(
     collection(db, 'trees', treeId, 'relationships')
   );
   if (snapshot.empty) return;
-
-  const batch = writeBatch(db);
-  snapshot.docs.forEach((d) => batch.delete(d.ref));
-  await batch.commit();
+  await batchDeleteDocs(snapshot.docs.map((d) => d.ref));
 }
 
 /**

@@ -11,6 +11,7 @@ import {
   arrayRemove,
 } from 'firebase/firestore';
 import { db } from './config';
+import { batchDeleteDocs } from './firestore';
 import type { TreeMember, MemberRole } from '@/lib/types';
 
 /**
@@ -141,8 +142,5 @@ export async function deleteAllTreeMembers(
     collection(db, 'trees', treeId, 'members')
   );
   if (snapshot.empty) return;
-
-  const batch = writeBatch(db);
-  snapshot.docs.forEach((d) => batch.delete(d.ref));
-  await batch.commit();
+  await batchDeleteDocs(snapshot.docs.map((d) => d.ref));
 }

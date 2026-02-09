@@ -40,8 +40,22 @@ export function usePersons(treeId: string | null) {
   }, [treeId, setPersons]);
 
   useEffect(() => {
-    fetchPersons();
-  }, [fetchPersons]);
+    let cancelled = false;
+    (async () => {
+      if (!treeId) { setPersons([]); setLoading(false); return; }
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await getTreePersons(treeId);
+        if (!cancelled) setPersons(data);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to fetch persons');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [treeId, setPersons]);
 
   const create = async (data: PersonSchemaFormData): Promise<string | null> => {
     if (!treeId) return null;
@@ -121,8 +135,22 @@ export function usePersonDetails(treeId: string | null, personId: string | null)
   }, [treeId, personId]);
 
   useEffect(() => {
-    fetchPerson();
-  }, [fetchPerson]);
+    let cancelled = false;
+    (async () => {
+      if (!treeId || !personId) { setPerson(null); setLoading(false); return; }
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await getPerson(treeId, personId);
+        if (!cancelled) setPerson(data);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to fetch person');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [treeId, personId]);
 
   return {
     person,

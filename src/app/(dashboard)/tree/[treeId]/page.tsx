@@ -63,25 +63,31 @@ export default function TreePage() {
   const [calcOpen, setCalcOpen] = useState(false);
   const [rootPersonId, setRootPersonId] = useState<string | null>(null);
   const [activityOpen, setActivityOpen] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
 
   const isOwner = tree?.userId === user?.uid;
   const effectiveRoot = rootPersonId || tree?.rootPersonId || null;
 
   const handleAddPerson = async (data: PersonSchemaFormData) => {
     setIsAdding(true);
-    await create(data);
-    setIsAdding(false);
-    setAddModalOpen(false);
+    try {
+      await create(data);
+      setAddModalOpen(false);
 
-    if (user) {
-      await logActivity(
-        treeId,
-        'person_added',
-        `Added ${data.firstName} ${data.lastName}`,
-        user.uid,
-        user.displayName
-      );
-      refetchActivity();
+      if (user) {
+        await logActivity(
+          treeId,
+          'person_added',
+          `Added ${data.firstName} ${data.lastName}`,
+          user.uid,
+          user.displayName
+        );
+        refetchActivity();
+      }
+    } catch {
+      // Error is surfaced by the usePerson hook's error state
+    } finally {
+      setIsAdding(false);
     }
   };
 
@@ -89,19 +95,24 @@ export default function TreePage() {
     if (!deletePerson) return;
     const name = `${deletePerson.firstName} ${deletePerson.lastName}`;
     setIsDeleting(true);
-    await remove(deletePerson.id);
-    setIsDeleting(false);
-    setDeletePerson(null);
+    try {
+      await remove(deletePerson.id);
+      setDeletePerson(null);
 
-    if (user) {
-      await logActivity(
-        treeId,
-        'person_deleted',
-        `Removed ${name}`,
-        user.uid,
-        user.displayName
-      );
-      refetchActivity();
+      if (user) {
+        await logActivity(
+          treeId,
+          'person_deleted',
+          `Removed ${name}`,
+          user.uid,
+          user.displayName
+        );
+        refetchActivity();
+      }
+    } catch {
+      // Error is surfaced by the usePerson hook's error state
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -111,21 +122,26 @@ export default function TreePage() {
     person2Id: string
   ) => {
     setIsAddingRel(true);
-    await addRel(type, person1Id, person2Id);
-    setIsAddingRel(false);
+    try {
+      await addRel(type, person1Id, person2Id);
 
-    if (user) {
-      const p1 = persons.find((p) => p.id === person1Id);
-      const p2 = persons.find((p) => p.id === person2Id);
-      const label = type === 'spouse' ? 'spouse' : 'parent-child';
-      await logActivity(
-        treeId,
-        'relationship_added',
-        `Added ${label} relationship: ${p1?.firstName || '?'} \u2194 ${p2?.firstName || '?'}`,
-        user.uid,
-        user.displayName
-      );
-      refetchActivity();
+      if (user) {
+        const p1 = persons.find((p) => p.id === person1Id);
+        const p2 = persons.find((p) => p.id === person2Id);
+        const label = type === 'spouse' ? 'spouse' : 'parent-child';
+        await logActivity(
+          treeId,
+          'relationship_added',
+          `Added ${label} relationship: ${p1?.firstName || '?'} \u2194 ${p2?.firstName || '?'}`,
+          user.uid,
+          user.displayName
+        );
+        refetchActivity();
+      }
+    } catch {
+      // Error is surfaced by the useRelationships hook's error state
+    } finally {
+      setIsAddingRel(false);
     }
   };
 
@@ -137,10 +153,14 @@ export default function TreePage() {
   const handleChangeRoot = useCallback(
     async (personId: string) => {
       setRootPersonId(personId);
-      // Persist root to the tree document
       if (treeId) {
-        await updateTree(treeId, { rootPersonId: personId });
-        refetchTree();
+        try {
+          await updateTree(treeId, { rootPersonId: personId });
+          refetchTree();
+        } catch {
+          // Revert local state on failure
+          setRootPersonId(null);
+        }
       }
     },
     [treeId, refetchTree]
@@ -152,66 +172,70 @@ export default function TreePage() {
   };
 
   const handleImportGedcom = async (file: File) => {
-    const text = await file.text();
-    const { persons: parsedPersons, families } = parseGedcom(text);
+    setImportError(null);
+    try {
+      const text = await file.text();
+      const { persons: parsedPersons, families } = parseGedcom(text);
 
-    // Create persons and track GEDCOM ID → Firestore ID mapping
-    const gedcomToFirestoreId = new Map<string, string>();
+      // Create persons and track GEDCOM ID → Firestore ID mapping
+      const gedcomToFirestoreId = new Map<string, string>();
 
-    for (const pp of parsedPersons) {
-      const id = await createPerson(treeId, {
-        firstName: pp.firstName,
-        lastName: pp.lastName,
-        gender: pp.gender,
-        birthDate: pp.birthDate,
-        birthPlace: pp.birthPlace || undefined,
-        deathDate: pp.deathDate,
-        deathPlace: pp.deathPlace || undefined,
-        isLiving: pp.isLiving,
-        bio: pp.bio || undefined,
-      });
-      gedcomToFirestoreId.set(pp.gedcomId, id);
-    }
-
-    // Create relationships from families
-    for (const fam of families) {
-      const husbId = fam.husbandId
-        ? gedcomToFirestoreId.get(fam.husbandId)
-        : null;
-      const wifeId = fam.wifeId
-        ? gedcomToFirestoreId.get(fam.wifeId)
-        : null;
-
-      // Spouse relationship
-      if (husbId && wifeId) {
-        await addRelationship(
-          treeId,
-          'spouse',
-          husbId,
-          wifeId,
-          fam.marriageDate,
-          fam.divorceDate
-        );
+      for (const pp of parsedPersons) {
+        const id = await createPerson(treeId, {
+          firstName: pp.firstName,
+          lastName: pp.lastName,
+          gender: pp.gender,
+          birthDate: pp.birthDate,
+          birthPlace: pp.birthPlace || undefined,
+          deathDate: pp.deathDate,
+          deathPlace: pp.deathPlace || undefined,
+          isLiving: pp.isLiving,
+          bio: pp.bio || undefined,
+        });
+        gedcomToFirestoreId.set(pp.gedcomId, id);
       }
 
-      // Parent-child relationships
-      for (const childGedcomId of fam.childIds) {
-        const childId = gedcomToFirestoreId.get(childGedcomId);
-        if (!childId) continue;
+      // Create relationships from families
+      for (const fam of families) {
+        const husbId = fam.husbandId
+          ? gedcomToFirestoreId.get(fam.husbandId)
+          : null;
+        const wifeId = fam.wifeId
+          ? gedcomToFirestoreId.get(fam.wifeId)
+          : null;
 
-        if (husbId) {
-          await addRelationship(treeId, 'parent-child', husbId, childId);
+        // Spouse relationship
+        if (husbId && wifeId) {
+          await addRelationship(
+            treeId,
+            'spouse',
+            husbId,
+            wifeId,
+            fam.marriageDate,
+            fam.divorceDate
+          );
         }
-        if (wifeId) {
-          await addRelationship(treeId, 'parent-child', wifeId, childId);
+
+        // Parent-child relationships
+        for (const childGedcomId of fam.childIds) {
+          const childId = gedcomToFirestoreId.get(childGedcomId);
+          if (!childId) continue;
+
+          if (husbId) {
+            await addRelationship(treeId, 'parent-child', husbId, childId);
+          }
+          if (wifeId) {
+            await addRelationship(treeId, 'parent-child', wifeId, childId);
+          }
         }
       }
-    }
 
-    // Refetch all data
-    // The usePersons hook will refetch on its own since we called createPerson,
-    // but relationships need a manual refetch
-    refetchRels();
+      refetchRels();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to import GEDCOM file';
+      setImportError(msg);
+      throw err; // Re-throw so TreeSettingsModal knows it failed
+    }
   };
 
   const handleUpdateTree = async (data: { isPublic?: boolean }) => {
@@ -355,6 +379,17 @@ export default function TreePage() {
           </div>
         </div>
       </div>
+
+      {importError && (
+        <div className="mb-4 flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
+          <span>GEDCOM import error: {importError}</span>
+          <button onClick={() => setImportError(null)} className="ml-4 text-red-500 hover:text-red-700">
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {/* Main content + activity sidebar */}
       <div className="flex flex-1 gap-4 overflow-hidden">

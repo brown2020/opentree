@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { createTree, createPerson, updateTree } from '@/lib/firebase/firestore';
+import { createTree, createPerson, updateTree, deleteTree } from '@/lib/firebase/firestore';
 import { addRelationship } from '@/lib/firebase/relationships';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -45,9 +45,11 @@ export function OnboardingWizard() {
     setStep('creating');
     setError(null);
 
+    let treeId: string | null = null;
+
     try {
       // 1. Create the tree
-      const treeId = await createTree(user.uid, {
+      treeId = await createTree(user.uid, {
         name: treeName.trim(),
         description: '',
       });
@@ -98,6 +100,15 @@ export function OnboardingWizard() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
       setStep('parents');
+
+      // Best-effort cleanup: delete the orphaned tree
+      if (treeId) {
+        try {
+          await deleteTree(treeId, user.uid);
+        } catch {
+          // Cleanup failed — orphaned tree will remain
+        }
+      }
     }
   }, [user, treeName, self, father, mother, hasFather, hasMother, router]);
 

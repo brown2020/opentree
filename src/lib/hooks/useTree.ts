@@ -39,8 +39,22 @@ export function useTrees() {
   }, [user]);
 
   useEffect(() => {
-    fetchTrees();
-  }, [fetchTrees]);
+    let cancelled = false;
+    (async () => {
+      if (!user) { setTrees([]); setLoading(false); return; }
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await getUserTrees(user.uid);
+        if (!cancelled) setTrees(data);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to fetch trees');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
 
   const create = async (data: TreeSchemaFormData): Promise<string | null> => {
     if (!user) return null;
@@ -119,8 +133,22 @@ export function useTreeDetails(treeId: string | null) {
   }, [treeId]);
 
   useEffect(() => {
-    fetchTree();
-  }, [fetchTree]);
+    let cancelled = false;
+    (async () => {
+      if (!treeId) { setTree(null); setLoading(false); return; }
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await getTree(treeId);
+        if (!cancelled) setTree(data);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to fetch tree');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [treeId]);
 
   return {
     tree,

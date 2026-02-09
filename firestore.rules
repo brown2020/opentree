@@ -21,9 +21,11 @@ service cloud.firestore {
     }
 
     // Allow looking up users by email (for sharing/invite feature)
+    // Requires an equality filter on 'email' to prevent user enumeration
     match /users/{userId} {
       allow list: if request.auth != null
-        && request.query.limit <= 1;
+        && request.query.limit <= 1
+        && 'email' in request.query.orderBy;
     }
 
     // Trees collection
@@ -44,10 +46,21 @@ service cloud.firestore {
         && request.resource.data.isPublic is bool
         && request.resource.data.memberIds is list;
 
-      allow update: if request.auth != null && (
-        resource.data.userId == request.auth.uid
-        || (resource.data.memberIds is list && request.auth.uid in resource.data.memberIds)
-      ) && request.resource.data.userId == resource.data.userId;
+      // Owner can update any field (except userId)
+      allow update: if request.auth != null
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == resource.data.userId;
+
+      // Editor members can only update name, description, rootPersonId, updatedAt
+      allow update: if request.auth != null
+        && resource.data.memberIds is list
+        && request.auth.uid in resource.data.memberIds
+        && get(/databases/$(database)/documents/trees/$(treeId)/members/$(request.auth.uid)).data.role == 'editor'
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.memberIds == resource.data.memberIds
+        && request.resource.data.isPublic == resource.data.isPublic
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['name', 'description', 'rootPersonId', 'updatedAt']);
 
       allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
 

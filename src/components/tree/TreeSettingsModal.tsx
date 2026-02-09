@@ -48,13 +48,17 @@ export function TreeSettingsModal({
   const [isExportingZip, setIsExportingZip] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [isTogglingPublic, setIsTogglingPublic] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const handleExport = useCallback(() => {
     setIsExporting(true);
+    setExportError(null);
     try {
       const content = exportToGedcom(tree.name, persons, relationships);
       const filename = tree.name.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
       downloadGedcom(content, `${filename}.ged`);
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : 'Failed to export GEDCOM');
     } finally {
       setIsExporting(false);
     }
@@ -62,8 +66,11 @@ export function TreeSettingsModal({
 
   const handleExportZip = useCallback(async () => {
     setIsExportingZip(true);
+    setExportError(null);
     try {
       await exportTreeAsZip(tree.id, tree.name, persons, relationships);
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : 'Failed to export ZIP');
     } finally {
       setIsExportingZip(false);
     }
@@ -93,20 +100,29 @@ export function TreeSettingsModal({
     setIsInviting(true);
     setInviteError('');
 
-    const result = await onAddMember(inviteEmail.trim(), inviteRole);
-    if (result.success) {
-      setInviteEmail('');
-    } else {
-      setInviteError(result.error || 'Failed to add member');
+    try {
+      const result = await onAddMember(inviteEmail.trim(), inviteRole);
+      if (result.success) {
+        setInviteEmail('');
+      } else {
+        setInviteError(result.error || 'Failed to add member');
+      }
+    } catch (err) {
+      setInviteError(err instanceof Error ? err.message : 'Failed to add member');
+    } finally {
+      setIsInviting(false);
     }
-
-    setIsInviting(false);
   };
 
   const handleTogglePublic = async () => {
     setIsTogglingPublic(true);
-    await onUpdateTree({ isPublic: !tree.isPublic });
-    setIsTogglingPublic(false);
+    try {
+      await onUpdateTree({ isPublic: !tree.isPublic });
+    } catch {
+      // Silently fail — the tree state hasn't changed
+    } finally {
+      setIsTogglingPublic(false);
+    }
   };
 
   const tabs: { value: SettingsTab; label: string }[] = [
@@ -287,6 +303,11 @@ export function TreeSettingsModal({
         {/* GEDCOM tab */}
         {tab === 'gedcom' && (
           <div className="space-y-6">
+            {exportError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
+                {exportError}
+              </div>
+            )}
             {/* Export */}
             <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
               <h3 className="font-medium text-gray-900 dark:text-gray-100">
