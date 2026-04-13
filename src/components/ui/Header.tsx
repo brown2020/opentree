@@ -18,7 +18,11 @@ export function Header({ onMenuClick }: HeaderProps) {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const handleSignOut = async () => {
-    await signOut();
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Failed to sign out:', error);
+    }
     router.push('/login');
   };
 
