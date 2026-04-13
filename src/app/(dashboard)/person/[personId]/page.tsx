@@ -1,41 +1,62 @@
 'use client';
 
-import { Suspense, useState, useMemo } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
+import { Suspense, useState, useMemo, useCallback } from 'react';
+import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { format } from 'date-fns';
+import { format, differenceInYears } from 'date-fns';
 import { usePersonDetails } from '@/lib/hooks/usePerson';
 import { useRelationships } from '@/lib/hooks/useRelationships';
 import { usePersons } from '@/lib/hooks/usePerson';
 import { useTreeStore } from '@/lib/stores/treeStore';
+import { useTreeDetails } from '@/lib/hooks/useTree';
 import { Button } from '@/components/ui/Button';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { AddRelationshipModal } from '@/components/tree/AddRelationshipModal';
+import { AddPersonModal } from '@/components/person/AddPersonModal';
 import { PhotoGallery } from '@/components/person/PhotoGallery';
 import { DocumentList } from '@/components/person/DocumentList';
 import { TimelineView } from '@/components/person/TimelineView';
 import { timestampToDate } from '@/lib/firebase/firestore';
+import { createPerson } from '@/lib/firebase/firestore';
+import { addRelationship as addRelationshipFn } from '@/lib/firebase/relationships';
 import { buildAdjacencyMap } from '@/lib/firebase/relationships';
 import type { Person, RelationshipType } from '@/lib/types';
+import type { PersonSchemaFormData } from '@/lib/utils/validation';
 
 type PersonTab = 'overview' | 'photos' | 'documents' | 'timeline';
 
 function PersonDetailContent() {
   const params = useParams();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const personId = params.personId as string;
   const treeId = searchParams.get('tree');
+  const tabParam = searchParams.get('tab') as PersonTab | null;
+  const activeTab: PersonTab = ['overview', 'photos', 'documents', 'timeline'].includes(tabParam as string)
+    ? (tabParam as PersonTab)
+    : 'overview';
 
   const { person, loading } = usePersonDetails(treeId, personId);
-  const { loading: personsLoading } = usePersons(treeId);
+  const { loading: personsLoading, refetch: refetchPersons } = usePersons(treeId);
   const { persons } = useTreeStore();
-  const { relationships, add: addRel } = useRelationships(treeId);
-  const [activeTab, setActiveTab] = useState<PersonTab>('overview');
+  const { relationships, add: addRel, refetch: refetchRels } = useRelationships(treeId);
+  const { tree } = useTreeDetails(treeId);
   const [relModalOpen, setRelModalOpen] = useState(false);
   const [isAddingRel, setIsAddingRel] = useState(false);
+  const [quickAddType, setQuickAddType] = useState<'parent' | 'child' | 'spouse' | null>(null);
+  const [isQuickAdding, setIsQuickAdding] = useState(false);
 
-  // Build adjacency for this person — includes step-relationships
+  const setActiveTab = useCallback(
+    (tab: PersonTab) => {
+      const params = new URLSearchParams();
+      if (treeId) params.set('tree', treeId);
+      if (tab !== 'overview') params.set('tab', tab);
+      router.replace(`/person/${personId}?${params.toString()}`, { scroll: false });
+    },
+    [treeId, personId, router]
+  );
+
   const related = useMemo(() => {
     const empty = {
       parents: [] as Person[],
@@ -62,7 +83,6 @@ function PersonDetailContent() {
     const childrenList = resolve(entry.children);
     const spousesList = resolve(entry.spouses);
 
-    // Biological siblings: share at least one parent
     const siblingIds = new Set<string>();
     for (const parentId of entry.parents) {
       const parentEntry = adj.get(parentId);
@@ -73,7 +93,6 @@ function PersonDetailContent() {
       }
     }
 
-    // Step-parents: spouses of biological parents who are NOT this person's parent
     const stepParentIds = new Set<string>();
     for (const parentId of entry.parents) {
       const parentEntry = adj.get(parentId);
@@ -86,7 +105,6 @@ function PersonDetailContent() {
       }
     }
 
-    // Step-children: children of spouse who are NOT this person's children
     const stepChildIds = new Set<string>();
     for (const spouseId of entry.spouses) {
       const spouseEntry = adj.get(spouseId);
@@ -99,7 +117,6 @@ function PersonDetailContent() {
       }
     }
 
-    // Step-siblings: children of step-parents who are not biological siblings or self
     const stepSiblingIds = new Set<string>();
     for (const stepParentId of stepParentIds) {
       const stepParentEntry = adj.get(stepParentId);
@@ -123,14 +140,48 @@ function PersonDetailContent() {
     };
   }, [person, persons, relationships]);
 
+  const marriageDates = useMemo(() => {
+    if (!person) return new Map<string, string>();
+    const dates = new Map<string, string>();
+    for (const rel of relationships) {
+      if (rel.type !== 'spouse') continue;
+      const spouseId = rel.person1Id === person.id ? rel.person2Id
+        : rel.person2Id === person.id ? rel.person1Id : null;
+      if (!spouseId || !rel.marriageDate) continue;
+      const d = timestampToDate(rel.marriageDate);
+      if (d) dates.set(spouseId, format(d, 'MMMM d, yyyy'));
+    }
+    return dates;
+  }, [person, relationships]);
+
   const handleAddRelationship = async (
     type: RelationshipType,
     person1Id: string,
     person2Id: string
   ) => {
     setIsAddingRel(true);
-    await addRel(type, person1Id, person2Id);
-    setIsAddingRel(false);
+    try {
+      await addRel(type, person1Id, person2Id);
+    } finally {
+      setIsAddingRel(false);
+    }
+  };
+
+  const handleQuickAdd = async (data: PersonSchemaFormData) => {
+    if (!treeId || !person || !quickAddType) return;
+    setIsQuickAdding(true);
+    try {
+      const newPersonId = await createPerson(treeId, data);
+      const relType: RelationshipType = quickAddType === 'spouse' ? 'spouse' : 'parent-child';
+      const p1 = quickAddType === 'child' ? person.id : newPersonId;
+      const p2 = quickAddType === 'child' ? newPersonId : person.id;
+      await addRelationshipFn(treeId, relType, quickAddType === 'spouse' ? person.id : p1, quickAddType === 'spouse' ? newPersonId : p2);
+      refetchPersons();
+      refetchRels();
+      setQuickAddType(null);
+    } finally {
+      setIsQuickAdding(false);
+    }
   };
 
   if (loading || personsLoading) {
@@ -152,17 +203,22 @@ function PersonDetailContent() {
   const birthDate = timestampToDate(person.birthDate);
   const deathDate = timestampToDate(person.deathDate);
 
+  const computedAge = (() => {
+    if (!birthDate) return null;
+    if (person.isLiving) return differenceInYears(new Date(), birthDate);
+    if (deathDate) return differenceInYears(deathDate, birthDate);
+    return null;
+  })();
+
   const genderColor = {
     male: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
     female: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400',
-    other:
-      'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+    other: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
     unknown: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
   };
 
   const initials =
-    `${person.firstName?.[0] || ''}${person.lastName?.[0] || ''}`.toUpperCase() ||
-    '?';
+    `${person.firstName?.[0] || ''}${person.lastName?.[0] || ''}`.toUpperCase() || '?';
 
   const hasRelationships =
     related.parents.length > 0 ||
@@ -182,16 +238,24 @@ function PersonDetailContent() {
 
   return (
     <div className="mx-auto max-w-5xl">
-      {/* Back link */}
-      <Link
-        href={`/tree/${treeId}`}
-        className="mb-6 inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-      >
-        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+      {/* Breadcrumb */}
+      <nav className="mb-6 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+        <Link href="/" className="hover:text-gray-700 dark:hover:text-gray-200">
+          Dashboard
+        </Link>
+        <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
         </svg>
-        Back to tree
-      </Link>
+        <Link href={`/tree/${treeId}`} className="hover:text-gray-700 dark:hover:text-gray-200">
+          {tree?.name || 'Tree'}
+        </Link>
+        <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+        <span className="truncate font-medium text-gray-900 dark:text-gray-100">
+          {person.firstName} {person.lastName}
+        </span>
+      </nav>
 
       {/* Header */}
       <div className="mb-6 flex flex-col items-start gap-6 sm:flex-row sm:items-center">
@@ -212,22 +276,39 @@ function PersonDetailContent() {
         )}
 
         <div className="flex-1">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-            {person.firstName} {person.middleName} {person.lastName}
-            {person.maidenName && (
-              <span className="text-gray-500"> (nee {person.maidenName})</span>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+              {person.firstName} {person.middleName} {person.lastName}
+              {person.maidenName && (
+                <span className="text-gray-500"> (nee {person.maidenName})</span>
+              )}
+            </h1>
+            {person.isLiving ? (
+              <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                Living
+              </span>
+            ) : (
+              <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                Deceased
+              </span>
             )}
-          </h1>
+          </div>
           <div className="mt-2 flex flex-wrap items-center gap-4 text-gray-500 dark:text-gray-400">
             {birthDate && (
-              <span>Born {format(birthDate, 'MMMM d, yyyy')}</span>
+              <span className="flex items-center gap-1.5">
+                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                Born {format(birthDate, 'MMMM d, yyyy')}
+              </span>
             )}
             {!person.isLiving && deathDate && (
-              <span>Died {format(deathDate, 'MMMM d, yyyy')}</span>
+              <span className="flex items-center gap-1.5">
+                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                Died {format(deathDate, 'MMMM d, yyyy')}
+              </span>
             )}
-            {!person.isLiving && (
-              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs dark:bg-gray-700">
-                Deceased
+            {computedAge !== null && (
+              <span className="text-sm">
+                {person.isLiving ? `Age ${computedAge}` : `Lived to ${computedAge}`}
               </span>
             )}
           </div>
@@ -300,7 +381,7 @@ function PersonDetailContent() {
               <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
                 Facts
               </h2>
-              <dl className="space-y-3 text-sm">
+              <dl className="space-y-4 text-sm">
                 <div>
                   <dt className="text-gray-500 dark:text-gray-400">Gender</dt>
                   <dd className="font-medium capitalize text-gray-900 dark:text-gray-100">
@@ -312,10 +393,21 @@ function PersonDetailContent() {
                     <dt className="text-gray-500 dark:text-gray-400">Birth</dt>
                     <dd className="font-medium text-gray-900 dark:text-gray-100">
                       {format(birthDate, 'MMMM d, yyyy')}
-                      {person.birthPlace && (
-                        <span className="block text-xs text-gray-500">{person.birthPlace}</span>
+                      {computedAge !== null && (
+                        <span className="ml-1 text-xs text-gray-500">
+                          ({person.isLiving ? `age ${computedAge}` : `age ${computedAge} at death`})
+                        </span>
                       )}
                     </dd>
+                    {person.birthPlace && (
+                      <dd className="mt-0.5 flex items-center gap-1 text-xs text-gray-500">
+                        <svg className="h-3 w-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        {person.birthPlace}
+                      </dd>
+                    )}
                   </div>
                 )}
                 {!person.isLiving && deathDate && (
@@ -323,10 +415,35 @@ function PersonDetailContent() {
                     <dt className="text-gray-500 dark:text-gray-400">Death</dt>
                     <dd className="font-medium text-gray-900 dark:text-gray-100">
                       {format(deathDate, 'MMMM d, yyyy')}
-                      {person.deathPlace && (
-                        <span className="block text-xs text-gray-500">{person.deathPlace}</span>
-                      )}
                     </dd>
+                    {person.deathPlace && (
+                      <dd className="mt-0.5 flex items-center gap-1 text-xs text-gray-500">
+                        <svg className="h-3 w-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        {person.deathPlace}
+                      </dd>
+                    )}
+                  </div>
+                )}
+                {related.spouses.length > 0 && (
+                  <div>
+                    <dt className="text-gray-500 dark:text-gray-400">
+                      {related.spouses.length === 1 ? 'Marriage' : 'Marriages'}
+                    </dt>
+                    {related.spouses.map((sp) => (
+                      <dd key={sp.id} className="mt-1 font-medium text-gray-900 dark:text-gray-100">
+                        <Link href={`/person/${sp.id}?tree=${treeId}`} className="hover:text-emerald-600 dark:hover:text-emerald-400">
+                          {sp.firstName} {sp.lastName}
+                        </Link>
+                        {marriageDates.get(sp.id) && (
+                          <span className="ml-1 text-xs text-gray-500">
+                            ({marriageDates.get(sp.id)})
+                          </span>
+                        )}
+                      </dd>
+                    ))}
                   </div>
                 )}
                 <div>
@@ -368,11 +485,20 @@ function PersonDetailContent() {
                 </div>
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2">
-                  {related.spouses.length > 0 && (
-                    <RelationSection title="Spouse(s)" persons={related.spouses} treeId={treeId} />
-                  )}
                   {related.parents.length > 0 && (
-                    <RelationSection title="Parents" persons={related.parents} treeId={treeId} />
+                    <RelationSection title="Parents" persons={related.parents} treeId={treeId} onQuickAdd={() => setQuickAddType('parent')} />
+                  )}
+                  {related.parents.length === 0 && (
+                    <div>
+                      <div className="mb-2 flex items-center justify-between">
+                        <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Parents</h3>
+                        <button onClick={() => setQuickAddType('parent')} className="text-xs text-emerald-600 hover:text-emerald-700 dark:text-emerald-400">+ Add</button>
+                      </div>
+                      <p className="text-xs italic text-gray-400">No parents added</p>
+                    </div>
+                  )}
+                  {related.spouses.length > 0 && (
+                    <RelationSection title="Spouse(s)" persons={related.spouses} treeId={treeId} onQuickAdd={() => setQuickAddType('spouse')} />
                   )}
                   {related.stepParents.length > 0 && (
                     <RelationSection title="Step-Parents" persons={related.stepParents} treeId={treeId} />
@@ -384,7 +510,16 @@ function PersonDetailContent() {
                     <RelationSection title="Step-Siblings" persons={related.stepSiblings} treeId={treeId} />
                   )}
                   {related.children.length > 0 && (
-                    <RelationSection title="Children" persons={related.children} treeId={treeId} />
+                    <RelationSection title="Children" persons={related.children} treeId={treeId} onQuickAdd={() => setQuickAddType('child')} />
+                  )}
+                  {related.children.length === 0 && (
+                    <div>
+                      <div className="mb-2 flex items-center justify-between">
+                        <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Children</h3>
+                        <button onClick={() => setQuickAddType('child')} className="text-xs text-emerald-600 hover:text-emerald-700 dark:text-emerald-400">+ Add</button>
+                      </div>
+                      <p className="text-xs italic text-gray-400">No children added</p>
+                    </div>
                   )}
                   {related.stepChildren.length > 0 && (
                     <RelationSection title="Step-Children" persons={related.stepChildren} treeId={treeId} />
@@ -420,6 +555,14 @@ function PersonDetailContent() {
           loading={isAddingRel}
         />
       )}
+
+      {/* Quick-add person modal */}
+      <AddPersonModal
+        isOpen={!!quickAddType}
+        onClose={() => setQuickAddType(null)}
+        onSubmit={handleQuickAdd}
+        loading={isQuickAdding}
+      />
     </div>
   );
 }
@@ -428,10 +571,12 @@ function RelationSection({
   title,
   persons,
   treeId,
+  onQuickAdd,
 }: {
   title: string;
   persons: Person[];
   treeId: string;
+  onQuickAdd?: () => void;
 }) {
   const genderColors: Record<string, string> = {
     male: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
@@ -442,9 +587,16 @@ function RelationSection({
 
   return (
     <div>
-      <h3 className="mb-2 text-sm font-medium text-gray-500 dark:text-gray-400">
-        {title}
-      </h3>
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">
+          {title}
+        </h3>
+        {onQuickAdd && (
+          <button onClick={onQuickAdd} className="text-xs text-emerald-600 hover:text-emerald-700 dark:text-emerald-400">
+            + Add
+          </button>
+        )}
+      </div>
       <div className="flex flex-wrap gap-2">
         {persons.map((p) => (
           <Link

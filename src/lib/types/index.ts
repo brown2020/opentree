@@ -3,6 +3,7 @@ export * from './tree';
 export * from './relationship';
 export * from './event';
 export * from './media';
+export * from './activity';
 
 export interface User {
   uid: string;

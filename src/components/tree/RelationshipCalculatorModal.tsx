@@ -84,7 +84,7 @@ export function RelationshipCalculatorModal({
         </div>
 
         {/* Result */}
-        {result && (
+        {result && result !== 'Not related' && (
           <div className="rounded-xl bg-emerald-50 p-6 text-center dark:bg-emerald-900/20">
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {person1?.firstName} is the
@@ -98,10 +98,10 @@ export function RelationshipCalculatorModal({
           </div>
         )}
 
-        {person1Id && person2Id && !result && (
+        {person1Id && person2Id && (!result || result === 'Not related') && (
           <div className="rounded-xl bg-gray-50 p-6 text-center dark:bg-gray-800">
             <p className="text-gray-500 dark:text-gray-400">
-              No relationship found between these two people.
+              No relationship found between {person1?.firstName} and {person2?.firstName}.
             </p>
           </div>
         )}

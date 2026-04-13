@@ -9,9 +9,10 @@ interface TreeCardProps {
   tree: Tree;
   onDelete?: (tree: Tree) => void;
   isShared?: boolean;
+  personCount?: number;
 }
 
-export function TreeCard({ tree, onDelete, isShared }: TreeCardProps) {
+export function TreeCard({ tree, onDelete, isShared, personCount }: TreeCardProps) {
   const updatedAt = timestampToDate(tree.updatedAt);
 
   return (
@@ -79,9 +80,18 @@ export function TreeCard({ tree, onDelete, isShared }: TreeCardProps) {
         </p>
       )}
 
-      <p className="text-xs text-gray-400 dark:text-gray-500">
-        Updated {updatedAt ? format(updatedAt, 'MMM d, yyyy') : 'recently'}
-      </p>
+      <div className="flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
+        {personCount !== undefined && (
+          <span className="flex items-center gap-1">
+            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            {personCount} {personCount === 1 ? 'person' : 'people'}
+          </span>
+        )}
+        {personCount !== undefined && <span>&middot;</span>}
+        <span>Updated {updatedAt ? format(updatedAt, 'MMM d, yyyy') : 'recently'}</span>
+      </div>
     </div>
   );
 }
