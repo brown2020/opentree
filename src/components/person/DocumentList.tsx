@@ -46,14 +46,19 @@ export function DocumentList({ treeId, personId }: DocumentListProps) {
     if (!selectedFile) return;
 
     setUploading(true);
-    await upload(selectedFile, {
-      ...data,
-      name: data.name || selectedFile.name,
-    });
-    setUploading(false);
-    setUploadModalOpen(false);
-    setSelectedFile(null);
-    reset();
+    try {
+      await upload(selectedFile, {
+        ...data,
+        name: data.name || selectedFile.name,
+      });
+      setUploadModalOpen(false);
+      setSelectedFile(null);
+      reset();
+    } catch (error) {
+      console.error('Failed to upload document:', error);
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleDelete = async () => {

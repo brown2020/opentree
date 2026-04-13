@@ -28,10 +28,15 @@ export function PhotoGallery({ treeId, personId }: PhotoGalleryProps) {
 
   const handleUpload = async (files: File[]) => {
     setUploading(true);
-    for (const file of files) {
-      await upload(file);
+    try {
+      for (const file of files) {
+        await upload(file);
+      }
+    } catch (error) {
+      console.error('Failed to upload photo:', error);
+    } finally {
+      setUploading(false);
     }
-    setUploading(false);
   };
 
   const handleDelete = async () => {
