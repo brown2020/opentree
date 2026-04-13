@@ -1,3 +1,5 @@
+import { deleteCookie } from "cookies-next";
+
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -54,6 +56,15 @@ export async function signIn(
 }
 
 export async function signOut(): Promise<void> {
+  // Explicitly delete auth cookies before signing out
+  deleteCookie("authToken", { path: "/" });
+  deleteCookie("__session", { path: "/" });
+
+  // Clear localStorage auth artifacts
+  if (typeof window !== "undefined") {
+    window.localStorage.removeItem("emailForSignIn");
+  }
+
   await firebaseSignOut(auth);
 }
 
