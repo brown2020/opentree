@@ -161,7 +161,7 @@ export function TreeSettingsModal({
                 </h3>
                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                   {tree.isPublic
-                    ? 'Anyone with the link can view this tree. Living persons are hidden.'
+                    ? 'Anyone with the link can view this tree.'
                     : 'Only you and invited members can see this tree.'}
                 </p>
               </div>

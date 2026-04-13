@@ -186,6 +186,11 @@ export async function getTreePersons(treeId: string): Promise<Person[]> {
   return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as Person);
 }
 
+export async function getTreePersonCount(treeId: string): Promise<number> {
+  const snapshot = await getDocs(collection(db, 'trees', treeId, 'persons'));
+  return snapshot.size;
+}
+
 export async function updatePerson(
   treeId: string,
   personId: string,
