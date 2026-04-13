@@ -19,8 +19,6 @@ const NODE_HEIGHT = 90;
 const H_GAP = 30;
 const V_GAP = 120;
 const COUPLE_GAP = 10;
-// Slot width used for rough positioning calculations
-// const SLOT_WIDTH = NODE_WIDTH + H_GAP;
 
 /**
  * Layout a family tree centered on a root person.
@@ -316,4 +314,4 @@ function centerChildrenUnderParents(
   }
 }
 
-export { NODE_WIDTH, NODE_HEIGHT, H_GAP, V_GAP };
+export { NODE_WIDTH, NODE_HEIGHT };
