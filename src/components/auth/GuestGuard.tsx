@@ -20,7 +20,7 @@ export function GuestGuard({ children }: GuestGuardProps) {
   useEffect(() => {
     if (initialized && user) {
       // Allow verify-email and email-link pages for logged-in users
-      if (ALLOWED_AUTH_PAGES.includes(pathname)) {
+      if (ALLOWED_AUTH_PAGES.includes(pathname ?? "")) {
         // If verified and on verify-email, redirect to dashboard
         if (emailVerified && pathname === '/verify-email') {
           router.replace('/');
@@ -42,7 +42,7 @@ export function GuestGuard({ children }: GuestGuardProps) {
   }
 
   // Allow access to allowed auth pages even when logged in
-  if (user && ALLOWED_AUTH_PAGES.includes(pathname)) {
+  if (user && ALLOWED_AUTH_PAGES.includes(pathname ?? "")) {
     return <>{children}</>;
   }
 

@@ -8,8 +8,8 @@ import { DocumentList } from '@/components/person/DocumentList';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 function PersonDocumentsContent() {
-  const params = useParams();
-  const searchParams = useSearchParams();
+  const params = useParams()!;
+  const searchParams = useSearchParams()!;
   const personId = params.personId as string;
   const treeId = searchParams.get('tree');
 

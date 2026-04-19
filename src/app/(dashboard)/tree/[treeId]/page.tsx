@@ -30,7 +30,7 @@ import type { PersonSchemaFormData } from '@/lib/utils/validation';
 type ViewMode = 'tree' | 'list';
 
 export default function TreePage() {
-  const params = useParams();
+  const params = useParams()!;
   const treeId = params.treeId as string;
   const { user } = useAuth();
 
