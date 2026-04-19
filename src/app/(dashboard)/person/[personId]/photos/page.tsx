@@ -8,8 +8,8 @@ import { PhotoGallery } from '@/components/person/PhotoGallery';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 function PersonPhotosContent() {
-  const params = useParams();
-  const searchParams = useSearchParams();
+  const params = useParams()!;
+  const searchParams = useSearchParams()!;
   const personId = params.personId as string;
   const treeId = searchParams.get('tree');
 

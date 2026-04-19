@@ -27,8 +27,8 @@ import type { PersonSchemaFormData } from '@/lib/utils/validation';
 type PersonTab = 'overview' | 'photos' | 'documents' | 'timeline';
 
 function PersonDetailContent() {
-  const params = useParams();
-  const searchParams = useSearchParams();
+  const params = useParams()!;
+  const searchParams = useSearchParams()!;
   const router = useRouter();
   const personId = params.personId as string;
   const treeId = searchParams.get('tree');
