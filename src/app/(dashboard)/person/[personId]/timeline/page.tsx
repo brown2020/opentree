@@ -8,8 +8,8 @@ import { TimelineView } from '@/components/person/TimelineView';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 function PersonTimelineContent() {
-  const params = useParams();
-  const searchParams = useSearchParams();
+  const params = useParams()!;
+  const searchParams = useSearchParams()!;
   const personId = params.personId as string;
   const treeId = searchParams.get('tree');
 

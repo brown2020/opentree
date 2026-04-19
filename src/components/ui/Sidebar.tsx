@@ -13,7 +13,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
   const { user } = useAuth();
   const [recentTrees, setRecentTrees] = useState<Tree[]>([]);
 
@@ -29,7 +29,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const activeTreeId = (() => {
     const treeMatch = pathname.match(/\/tree\/([^/]+)/);
     if (treeMatch) return treeMatch[1];
-    if (pathname.startsWith('/person/')) {
+    if (pathname?.startsWith('/person/')) {
       const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
       return params?.get('tree') || null;
     }
