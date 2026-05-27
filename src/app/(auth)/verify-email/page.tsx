@@ -9,6 +9,7 @@ import {
   signOut,
   getCurrentUser,
 } from '@/lib/firebase/auth';
+import { resolvePendingInvitesForUser } from '@/lib/firebase/members';
 import { syncAuthSessionCookie } from '@/lib/auth/session';
 import { Button } from '@/components/ui/Button';
 import { FullPageLoader } from '@/components/ui/LoadingSpinner';
@@ -69,6 +70,13 @@ export default function VerifyEmailPage() {
         const current = useAuthStore.getState().user;
         if (current) {
           syncAuthSessionCookie(current, true);
+          if (current.email) {
+            void resolvePendingInvitesForUser(
+              current.uid,
+              current.email,
+              current.displayName
+            );
+          }
         }
         router.replace('/');
       } else {

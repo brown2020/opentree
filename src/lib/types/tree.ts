@@ -12,6 +12,14 @@ export interface TreeMember {
   addedAt: Timestamp;
 }
 
+export interface TreeInvite {
+  id: string;
+  email: string;
+  role: MemberRole;
+  addedBy: string;
+  addedAt: Timestamp;
+}
+
 export interface Tree {
   id: string;
   userId: string;

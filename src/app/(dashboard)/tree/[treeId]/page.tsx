@@ -45,8 +45,10 @@ export default function TreePage() {
   } = useRelationships(treeId);
   const {
     members,
+    invites,
     add: addMember,
     remove: removeMember,
+    revokeInvite,
     updateRole: updateMemberRole,
   } = useMembers(treeId);
   const { persons, selectedPersonId, setSelectedPersonId } = useTreeStore();
@@ -534,9 +536,11 @@ export default function TreePage() {
         persons={persons}
         relationships={relationships}
         members={members}
+        invites={invites}
         onUpdateTree={handleUpdateTree}
         onAddMember={addMember}
         onRemoveMember={removeMember}
+        onRevokeInvite={revokeInvite}
         onUpdateMemberRole={updateMemberRole}
         onCommitGedcomImport={handleCommitGedcomImport}
         isOwner={isOwner}

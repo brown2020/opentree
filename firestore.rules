@@ -99,6 +99,22 @@ service cloud.firestore {
         allow delete: if isAuthenticated() && isTreeOwner(treeId);
       }
 
+      // ── Pending invites subcollection ───────────────────────────
+      match /invites/{inviteId} {
+        allow read: if isAuthenticated() && isTreeOwner(treeId);
+
+        allow create: if isAuthenticated()
+          && isTreeOwner(treeId)
+          && inviteId == request.resource.data.email
+          && request.resource.data.keys().hasAll(['email', 'role', 'addedBy', 'addedAt'])
+          && request.resource.data.email is string
+          && request.resource.data.email.size() > 0
+          && request.resource.data.role in ['editor', 'viewer']
+          && request.resource.data.addedBy == request.auth.uid;
+
+        allow delete: if isAuthenticated() && isTreeOwner(treeId);
+      }
+
       // ── Activity subcollection ────────────────────────────────
       match /activity/{activityId} {
         allow read: if isAuthenticated() && canAccessTree(treeId);
@@ -233,6 +249,12 @@ service cloud.firestore {
       }
     }
 
+    // Collection group: resolve pending invites for the authenticated user
+    match /{path=**}/invites/{inviteId} {
+      allow read, delete: if isAuthenticated()
+        && resource.data.email == canonicalUserEmail();
+    }
+
     // ── Helper functions ──────────────────────────────────────────
 
     function isAuthenticated() {
@@ -265,6 +287,10 @@ service cloud.firestore {
 
     function hasEditorRole(treeId) {
       return get(/databases/$(database)/documents/trees/$(treeId)/members/$(request.auth.uid)).data.role == 'editor';
+    }
+
+    function canonicalUserEmail() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.email;
     }
   }
 }
