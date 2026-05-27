@@ -1,5 +1,6 @@
 import {
   collection,
+  collectionGroup,
   doc,
   getDoc,
   getDocs,
@@ -12,7 +13,14 @@ import {
 } from 'firebase/firestore';
 import { db } from './config';
 import { batchDeleteDocs } from './firestore';
-import type { TreeMember, MemberRole } from '@/lib/types';
+import { inviteDocIdFromEmail, normalizeInviteEmail } from './inviteEmail';
+import type { TreeMember, TreeInvite, MemberRole } from '@/lib/types';
+
+export type AddTreeMemberResult = {
+  success: boolean;
+  pending?: boolean;
+  error?: string;
+};
 
 /**
  * Get all members of a tree.
@@ -25,6 +33,18 @@ export async function getTreeMembers(
   );
   return snapshot.docs.map(
     (d) => ({ id: d.id, ...d.data() }) as TreeMember
+  );
+}
+
+/**
+ * Get pending invites for a tree (owner only per security rules).
+ */
+export async function getTreeInvites(treeId: string): Promise<TreeInvite[]> {
+  const snapshot = await getDocs(
+    collection(db, 'trees', treeId, 'invites')
+  );
+  return snapshot.docs.map(
+    (d) => ({ id: d.id, ...d.data() }) as TreeInvite
   );
 }
 
@@ -48,26 +68,72 @@ async function findUserByEmail(
   };
 }
 
+async function addMemberToTree(
+  treeId: string,
+  userId: string,
+  email: string,
+  displayName: string | null,
+  role: MemberRole,
+  addedBy: string
+): Promise<void> {
+  const batch = writeBatch(db);
+
+  batch.set(doc(db, 'trees', treeId, 'members', userId), {
+    userId,
+    email,
+    displayName,
+    role,
+    addedBy,
+    addedAt: serverTimestamp(),
+  });
+
+  batch.update(doc(db, 'trees', treeId), {
+    memberIds: arrayUnion(userId),
+  });
+
+  await batch.commit();
+}
+
 /**
- * Add a member to a tree by email.
- * Looks up the user by email, adds them to the members subcollection,
- * and updates the tree's memberIds array atomically.
+ * Add a member to a tree by email, or create a pending invite if no account exists.
  */
 export async function addTreeMember(
   treeId: string,
   email: string,
   role: MemberRole,
   addedBy: string
-): Promise<{ success: boolean; error?: string }> {
-  const user = await findUserByEmail(email);
-  if (!user) {
-    return {
-      success: false,
-      error: 'No account found with that email. They need to sign up first.',
-    };
+): Promise<AddTreeMemberResult> {
+  const normalizedEmail = normalizeInviteEmail(email);
+  if (!normalizedEmail) {
+    return { success: false, error: 'Please enter a valid email address.' };
   }
 
-  // Check if already a member
+  const user = await findUserByEmail(normalizedEmail);
+
+  if (!user) {
+    const inviteId = inviteDocIdFromEmail(normalizedEmail);
+    const inviteRef = doc(db, 'trees', treeId, 'invites', inviteId);
+
+    const existingInvite = await getDoc(inviteRef);
+    if (existingInvite.exists()) {
+      return {
+        success: false,
+        error: 'An invite is already pending for this email.',
+      };
+    }
+
+    const batch = writeBatch(db);
+    batch.set(inviteRef, {
+      email: normalizedEmail,
+      role,
+      addedBy,
+      addedAt: serverTimestamp(),
+    });
+    await batch.commit();
+
+    return { success: true, pending: true };
+  }
+
   const existingDoc = await getDoc(
     doc(db, 'trees', treeId, 'members', user.uid)
   );
@@ -75,31 +141,124 @@ export async function addTreeMember(
     return { success: false, error: 'This person is already a member.' };
   }
 
-  // Check they're not the owner
   const treeDoc = await getDoc(doc(db, 'trees', treeId));
   if (treeDoc.exists() && treeDoc.data()?.userId === user.uid) {
     return { success: false, error: 'This person is the tree owner.' };
   }
 
-  const batch = writeBatch(db);
-
-  // Add member document
-  batch.set(doc(db, 'trees', treeId, 'members', user.uid), {
-    userId: user.uid,
-    email,
-    displayName: user.displayName,
+  await addMemberToTree(
+    treeId,
+    user.uid,
+    normalizedEmail,
+    user.displayName,
     role,
-    addedBy,
-    addedAt: serverTimestamp(),
-  });
+    addedBy
+  );
 
-  // Add userId to tree's memberIds array
-  batch.update(doc(db, 'trees', treeId), {
-    memberIds: arrayUnion(user.uid),
-  });
+  const inviteRef = doc(
+    db,
+    'trees',
+    treeId,
+    'invites',
+    inviteDocIdFromEmail(normalizedEmail)
+  );
+  const pendingInvite = await getDoc(inviteRef);
+  if (pendingInvite.exists()) {
+    const batch = writeBatch(db);
+    batch.delete(inviteRef);
+    await batch.commit();
+  }
 
+  return { success: true, pending: false };
+}
+
+/**
+ * Revoke a pending invite.
+ */
+export async function revokeTreeInvite(
+  treeId: string,
+  inviteId: string
+): Promise<void> {
+  const batch = writeBatch(db);
+  batch.delete(doc(db, 'trees', treeId, 'invites', inviteId));
   await batch.commit();
-  return { success: true };
+}
+
+/**
+ * Resolve pending invites for a user after signup and email verification.
+ */
+export async function resolvePendingInvitesForUser(
+  userId: string,
+  email: string,
+  displayName: string | null
+): Promise<number> {
+  const normalizedEmail = normalizeInviteEmail(email);
+  if (!normalizedEmail) return 0;
+
+  const userDoc = await getDoc(doc(db, 'users', userId));
+  const storedEmail = userDoc.data()?.email as string | undefined;
+  const queryEmail = normalizeInviteEmail(storedEmail || normalizedEmail);
+
+  const snapshot = await getDocs(
+    query(
+      collectionGroup(db, 'invites'),
+      where('email', '==', queryEmail)
+    )
+  );
+
+  if (snapshot.empty) return 0;
+
+  let resolved = 0;
+
+  for (const inviteDoc of snapshot.docs) {
+    const treeId = inviteDoc.ref.parent.parent?.id;
+    if (!treeId) continue;
+
+    const invite = inviteDoc.data() as Omit<TreeInvite, 'id'>;
+
+    const treeDoc = await getDoc(doc(db, 'trees', treeId));
+    if (!treeDoc.exists()) {
+      const batch = writeBatch(db);
+      batch.delete(inviteDoc.ref);
+      await batch.commit();
+      continue;
+    }
+
+    if (treeDoc.data()?.userId === userId) {
+      const batch = writeBatch(db);
+      batch.delete(inviteDoc.ref);
+      await batch.commit();
+      continue;
+    }
+
+    const memberDoc = await getDoc(
+      doc(db, 'trees', treeId, 'members', userId)
+    );
+    if (memberDoc.exists()) {
+      const batch = writeBatch(db);
+      batch.delete(inviteDoc.ref);
+      await batch.commit();
+      continue;
+    }
+
+    const batch = writeBatch(db);
+    batch.set(doc(db, 'trees', treeId, 'members', userId), {
+      userId,
+      email: normalizedEmail,
+      displayName,
+      role: invite.role,
+      addedBy: invite.addedBy,
+      addedAt: serverTimestamp(),
+    });
+    batch.update(doc(db, 'trees', treeId), {
+      memberIds: arrayUnion(userId),
+    });
+    batch.delete(inviteDoc.ref);
+    await batch.commit();
+    resolved++;
+  }
+
+  return resolved;
 }
 
 /**
@@ -140,6 +299,17 @@ export async function deleteAllTreeMembers(
 ): Promise<void> {
   const snapshot = await getDocs(
     collection(db, 'trees', treeId, 'members')
+  );
+  if (snapshot.empty) return;
+  await batchDeleteDocs(snapshot.docs.map((d) => d.ref));
+}
+
+/**
+ * Delete all pending invites for a tree (used during tree deletion).
+ */
+export async function deleteAllTreeInvites(treeId: string): Promise<void> {
+  const snapshot = await getDocs(
+    collection(db, 'trees', treeId, 'invites')
   );
   if (snapshot.empty) return;
   await batchDeleteDocs(snapshot.docs.map((d) => d.ref));

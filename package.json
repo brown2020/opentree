@@ -5,10 +5,13 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "lint": "eslint",
+    "test": "vitest run"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
+    "cookies-next": "^6.1.1",
     "d3-selection": "^3.0.0",
     "d3-transition": "^3.0.1",
     "d3-zoom": "^3.0.0",
@@ -21,8 +24,7 @@
     "react-dropzone": "^15.0.0",
     "react-hook-form": "^7.73.1",
     "zod": "^4.3.6",
-    "zustand": "^5.0.12",
-    "cookies-next": "^6.1.1"
+    "zustand": "^5.0.12"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -32,9 +34,10 @@
     "@types/node": "^25.6.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^10.2.1",
-    "eslint-config-next": "^16.2.4",
+    "eslint": "^9.39.1",
+    "eslint-config-next": "^16.2.6",
     "tailwindcss": "^4",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^3.2.4"
   }
 }

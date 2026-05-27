@@ -16,12 +16,14 @@ import type { Document, DocumentFormData } from '@/lib/types';
 interface DocumentListProps {
   treeId: string;
   personId: string;
+  treeOwnerId: string;
 }
 
-export function DocumentList({ treeId, personId }: DocumentListProps) {
+export function DocumentList({ treeId, personId, treeOwnerId }: DocumentListProps) {
   const { documents, loading, upload, remove } = useDocuments(
     treeId,
-    personId
+    personId,
+    treeOwnerId
   );
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);

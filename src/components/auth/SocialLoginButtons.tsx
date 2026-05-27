@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signInWithGoogle } from '@/lib/firebase/auth';
+import { navigateAfterSignIn } from '@/lib/auth/session';
 
 interface SocialLoginButtonsProps {
   onError?: (error: string) => void;
@@ -16,7 +17,7 @@ export function SocialLoginButtons({ onError }: SocialLoginButtonsProps) {
     setLoading(true);
     try {
       await signInWithGoogle();
-      router.push('/');
+      await navigateAfterSignIn(router);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to sign in with Google';
       if (message.includes('popup-closed-by-user')) {

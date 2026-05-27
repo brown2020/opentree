@@ -9,6 +9,8 @@ import {
   signOut,
   getCurrentUser,
 } from '@/lib/firebase/auth';
+import { resolvePendingInvitesForUser } from '@/lib/firebase/members';
+import { syncAuthSessionCookie } from '@/lib/auth/session';
 import { Button } from '@/components/ui/Button';
 import { FullPageLoader } from '@/components/ui/LoadingSpinner';
 
@@ -38,10 +40,12 @@ export default function VerifyEmailPage() {
 
     try {
       const currentUser = getCurrentUser();
-      if (currentUser) {
-        await sendVerificationEmail(currentUser);
-        setMessage('Verification email sent! Check your inbox.');
+      if (!currentUser) {
+        setError('You are not signed in. Please log in again.');
+        return;
       }
+      await sendVerificationEmail(currentUser);
+      setMessage('Verification email sent! Check your inbox.');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to send email';
       if (msg.includes('too-many-requests')) {
@@ -62,8 +66,19 @@ export default function VerifyEmailPage() {
     try {
       const isVerified = await refreshUserEmailVerified();
       if (isVerified) {
-        // Force a page reload to update auth state
-        window.location.href = '/';
+        useAuthStore.getState().setEmailVerified(true);
+        const current = useAuthStore.getState().user;
+        if (current) {
+          syncAuthSessionCookie(current, true);
+          if (current.email) {
+            void resolvePendingInvitesForUser(
+              current.uid,
+              current.email,
+              current.displayName
+            );
+          }
+        }
+        router.replace('/');
       } else {
         setError('Email not yet verified. Please check your inbox and click the verification link.');
       }

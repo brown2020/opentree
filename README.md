@@ -1,36 +1,36 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# OpenTree
 
-## Getting Started
+Free, open-source family tree builder. Create connected pedigree charts, collaborate with family, upload photos and documents, and export your full tree (GEDCOM + media).
 
-First, run the development server:
+- **Product spec & roadmap:** [spec.md](./spec.md)
+- **Agent/developer guide:** [AGENTS.md](./AGENTS.md)
+- **License:** GNU AGPL v3 — see [LICENSE.md](./LICENSE.md)
+
+## Quick start
 
 ```bash
+npm install
+# Create .env.local with NEXT_PUBLIC_FIREBASE_* vars (see AGENTS.md)
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Firebase setup
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Create a Firebase project with **Authentication** (Email/Password + Google), **Firestore**, and **Storage**
+2. Add web app credentials to `.env.local` (all `NEXT_PUBLIC_FIREBASE_*` vars — see [AGENTS.md](./AGENTS.md))
+3. Deploy security rules: `firebase deploy --only firestore:rules,storage`
 
-## Learn More
+## Scripts
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run dev      # Development server
+npm run build    # Production build
+npm run lint     # ESLint
+npm start        # Run production build
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Deploy
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Deployed on [Vercel](https://vercel.com). Connect the repo and set the same `NEXT_PUBLIC_*` environment variables.

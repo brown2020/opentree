@@ -25,6 +25,8 @@ interface FamilyTreeProps {
   treeId: string;
   rootPersonId: string | null;
   onChangeRoot: (id: string) => void;
+  getLifespanLabel?: (person: Person) => string;
+  readOnly?: boolean;
 }
 
 const DARK_NODE_BG = '#1F2937';
@@ -48,6 +50,8 @@ export function FamilyTree({
   treeId,
   rootPersonId,
   onChangeRoot,
+  getLifespanLabel,
+  readOnly = false,
 }: FamilyTreeProps) {
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -248,10 +252,13 @@ export function FamilyTree({
   }, [dimensions, nodes]);
 
   const getLifespan = (person: Person) => {
+    if (getLifespanLabel) {
+      return getLifespanLabel(person);
+    }
     const birthDate = timestampToDate(person.birthDate);
     const deathDate = timestampToDate(person.deathDate);
 
-    if (!birthDate) return '';
+    if (!birthDate) return person.isLiving ? 'Living' : '';
     const birth = format(birthDate, 'yyyy');
     if (person.isLiving) return `b. ${birth}`;
     if (deathDate) return `${birth} – ${format(deathDate, 'yyyy')}`;
@@ -460,6 +467,7 @@ export function FamilyTree({
                 )}
 
                 {/* Action icons — hidden by default, visible on hover */}
+                {!readOnly && (
                 <g className="node-actions" opacity={0}>
                   <g
                     transform={`translate(${NODE_WIDTH - 50}, 6)`}
@@ -492,6 +500,7 @@ export function FamilyTree({
                     </g>
                   )}
                 </g>
+                )}
               </g>
             );
           })}

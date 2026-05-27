@@ -3,8 +3,7 @@
 import { Suspense, useState } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { usePersonDetails } from '@/lib/hooks/usePerson';
-import { updatePerson } from '@/lib/firebase/firestore';
+import { usePersonDetails, usePersons } from '@/lib/hooks/usePerson';
 import { PersonForm } from '@/components/person/PersonForm';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import type { PersonSchemaFormData } from '@/lib/utils/validation';
@@ -17,13 +16,14 @@ function EditPersonContent() {
   const treeId = searchParams.get('tree');
 
   const { person, loading } = usePersonDetails(treeId, personId);
+  const { update } = usePersons(treeId);
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSubmit = async (data: PersonSchemaFormData) => {
     if (!treeId) return;
     setIsSaving(true);
     try {
-      await updatePerson(treeId, personId, data);
+      await update(personId, data);
       router.push(`/person/${personId}?tree=${treeId}`);
     } catch {
       setIsSaving(false);

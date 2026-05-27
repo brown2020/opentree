@@ -15,10 +15,15 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { uploadDocument, deleteFile } from '@/lib/firebase/storage';
+import { logTreeActivity } from '@/lib/firebase/activity';
 import { useAuth } from './useAuth';
 import type { Document, DocumentFormData } from '@/lib/types';
 
-export function useDocuments(treeId: string | null, personId: string | null) {
+export function useDocuments(
+  treeId: string | null,
+  personId: string | null,
+  treeOwnerId: string | null
+) {
   const { user } = useAuth();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,7 +89,7 @@ export function useDocuments(treeId: string | null, personId: string | null) {
     file: File,
     data: DocumentFormData
   ): Promise<string | null> => {
-    if (!user || !treeId || !personId) return null;
+    if (!user || !treeId || !personId || !treeOwnerId) return null;
 
     try {
       // Generate a temporary ID for storage path
@@ -92,7 +97,7 @@ export function useDocuments(treeId: string | null, personId: string | null) {
 
       // Upload file to storage first (so we don't create orphaned Firestore docs)
       const { url, storagePath } = await uploadDocument(
-        user.uid,
+        treeOwnerId,
         treeId,
         personId,
         file,
@@ -116,6 +121,16 @@ export function useDocuments(treeId: string | null, personId: string | null) {
       );
 
       await fetchDocuments();
+      if (user) {
+        const docName = data.name || file.name;
+        await logTreeActivity(
+          treeId,
+          { userId: user.uid, userDisplayName: user.displayName },
+          'document_added',
+          `Added document: ${docName}`,
+          personId
+        );
+      }
       return docRef.id;
     } catch (err) {
       setError(
@@ -174,6 +189,15 @@ export function useDocuments(treeId: string | null, personId: string | null) {
       );
 
       await fetchDocuments();
+      if (user) {
+        await logTreeActivity(
+          treeId,
+          { userId: user.uid, userDisplayName: user.displayName },
+          'document_deleted',
+          `Removed document: ${document.name}`,
+          personId
+        );
+      }
       return true;
     } catch (err) {
       setError(

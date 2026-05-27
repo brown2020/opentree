@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signUp } from '@/lib/firebase/auth';
+import { waitForAuthHydration } from '@/lib/auth/session';
 import { signupSchema, type SignupFormData } from '@/lib/utils/validation';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -27,7 +28,11 @@ export function SignupForm() {
     setError(null);
     try {
       await signUp(data.email, data.password, data.displayName);
-      // Redirect to verify-email page since email verification is now required
+      try {
+        await waitForAuthHydration();
+      } catch {
+        // AuthProvider may still be syncing.
+      }
       router.push('/verify-email');
     } catch (err) {
       const message =

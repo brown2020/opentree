@@ -17,7 +17,7 @@ import {
 import { db } from './config';
 import { deletePersonFiles } from './storage';
 import { removePersonRelationships, deleteAllTreeRelationships } from './relationships';
-import { deleteAllTreeMembers } from './members';
+import { deleteAllTreeMembers, deleteAllTreeInvites } from './members';
 import { deleteAllTreeActivity } from './activity';
 import type { Tree, Person } from '@/lib/types';
 import type { TreeSchemaFormData, PersonSchemaFormData } from '@/lib/utils/validation';
@@ -109,6 +109,7 @@ export async function deleteTree(
   await Promise.all([
     deleteAllTreeRelationships(treeId),
     deleteAllTreeMembers(treeId),
+    deleteAllTreeInvites(treeId),
     deleteAllTreeActivity(treeId),
   ]);
 
@@ -217,12 +218,15 @@ export async function updatePerson(
 
 export async function deletePerson(
   treeId: string,
-  personId: string,
-  userId: string
+  personId: string
 ): Promise<void> {
-  // Remove relationships referencing this person
+  const tree = await getTree(treeId);
+  if (!tree) {
+    throw new Error('Tree not found');
+  }
+
   await removePersonRelationships(treeId, personId);
-  await deletePersonAndSubcollections(treeId, personId, userId);
+  await deletePersonAndSubcollections(treeId, personId, tree.userId);
 }
 
 // Helper to convert Firestore timestamp to Date

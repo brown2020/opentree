@@ -8,6 +8,7 @@ import {
   updatePerson,
   deletePerson,
 } from '@/lib/firebase/firestore';
+import { logTreeActivity } from '@/lib/firebase/activity';
 import { useAuth } from './useAuth';
 import { useTreeStore } from '@/lib/stores/treeStore';
 import type { Person } from '@/lib/types';
@@ -63,6 +64,15 @@ export function usePersons(treeId: string | null) {
     try {
       const id = await createPerson(treeId, data);
       await fetchPersons();
+      if (user) {
+        await logTreeActivity(
+          treeId,
+          { userId: user.uid, userDisplayName: user.displayName },
+          'person_added',
+          `Added ${data.firstName} ${data.lastName}`,
+          id
+        );
+      }
       return id;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create person');
@@ -77,8 +87,20 @@ export function usePersons(treeId: string | null) {
     if (!treeId) return false;
 
     try {
+      const existing = await getPerson(treeId, personId);
       await updatePerson(treeId, personId, data);
       await fetchPersons();
+      if (user) {
+        const firstName = data.firstName ?? existing?.firstName ?? 'Person';
+        const lastName = data.lastName ?? existing?.lastName ?? '';
+        await logTreeActivity(
+          treeId,
+          { userId: user.uid, userDisplayName: user.displayName },
+          'person_updated',
+          `Updated ${firstName} ${lastName}`.trim(),
+          personId
+        );
+      }
       return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update person');
@@ -87,11 +109,21 @@ export function usePersons(treeId: string | null) {
   };
 
   const remove = async (personId: string): Promise<boolean> => {
-    if (!treeId || !user) return false;
+    if (!treeId) return false;
 
     try {
-      await deletePerson(treeId, personId, user.uid);
+      const existing = await getPerson(treeId, personId);
+      await deletePerson(treeId, personId);
       await fetchPersons();
+      if (user && existing) {
+        await logTreeActivity(
+          treeId,
+          { userId: user.uid, userDisplayName: user.displayName },
+          'person_deleted',
+          `Removed ${existing.firstName} ${existing.lastName}`,
+          personId
+        );
+      }
       return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete person');

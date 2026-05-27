@@ -4,6 +4,7 @@ import { Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { usePersonDetails } from '@/lib/hooks/usePerson';
+import { useTreeDetails } from '@/lib/hooks/useTree';
 import { DocumentList } from '@/components/person/DocumentList';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
@@ -14,8 +15,9 @@ function PersonDocumentsContent() {
   const treeId = searchParams.get('tree');
 
   const { person, loading } = usePersonDetails(treeId, personId);
+  const { tree, loading: treeLoading } = useTreeDetails(treeId);
 
-  if (loading) {
+  if (loading || treeLoading) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
         <LoadingSpinner size="lg" />
@@ -23,7 +25,7 @@ function PersonDocumentsContent() {
     );
   }
 
-  if (!person || !treeId) {
+  if (!person || !treeId || !tree) {
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center">
         <p className="text-gray-500 dark:text-gray-400">Person not found</p>
@@ -57,7 +59,7 @@ function PersonDocumentsContent() {
         Documents for {person.firstName} {person.lastName}
       </h1>
 
-      <DocumentList treeId={treeId} personId={personId} />
+      <DocumentList treeId={treeId} personId={personId} treeOwnerId={tree.userId} />
     </div>
   );
 }
