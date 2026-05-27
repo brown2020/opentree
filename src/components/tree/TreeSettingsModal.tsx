@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/Input';
 import type { Tree, TreeMember, MemberRole, Person, Relationship } from '@/lib/types';
 import { exportToGedcom, downloadGedcom } from '@/lib/utils/gedcom';
 import { exportTreeAsZip } from '@/lib/utils/exportZip';
+import { useAuth } from '@/lib/hooks/useAuth';
 
 type SettingsTab = 'general' | 'sharing' | 'gedcom';
 
@@ -39,6 +40,7 @@ export function TreeSettingsModal({
   onImportGedcom,
   isOwner,
 }: TreeSettingsModalProps) {
+  const { user } = useAuth();
   const [tab, setTab] = useState<SettingsTab>('general');
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<MemberRole>('viewer');
@@ -54,7 +56,11 @@ export function TreeSettingsModal({
     setIsExporting(true);
     setExportError(null);
     try {
-      const content = exportToGedcom(tree.name, persons, relationships);
+      const content = exportToGedcom(tree.name, persons, relationships, {
+        tree,
+        userId: user?.uid,
+        members,
+      });
       const filename = tree.name.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
       downloadGedcom(content, `${filename}.ged`);
     } catch (err) {
@@ -62,7 +68,7 @@ export function TreeSettingsModal({
     } finally {
       setIsExporting(false);
     }
-  }, [tree.name, persons, relationships]);
+  }, [tree, persons, relationships, members, user?.uid]);
 
   const handleExportZip = useCallback(async () => {
     setIsExportingZip(true);

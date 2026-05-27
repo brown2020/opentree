@@ -80,7 +80,7 @@ OpenTree is a fully client-rendered Next.js app. Users authenticate via Firebase
 | GEDCOM import | ⚠️ Partial | Imports immediately into current tree; **no preview step** |
 | Full ZIP export | ✅ | GEDCOM + all photos/documents per person |
 | Member sharing | ⚠️ Partial | Invite by email works **only if invitee already has an account** |
-| Public/private toggle | ⚠️ Partial | Toggle exists; **no living-person redaction**; **no guest viewing route** |
+| Public/private toggle | ⚠️ Partial | Toggle exists; living-person redaction for non-editors ✅; **no guest viewing route** |
 | Activity feed | ⚠️ Partial | Logged on tree page for person add/delete/relationship add; **not all CRUD paths** |
 | User settings | ✅ | Display name, photo, password, theme |
 | Dark mode | ✅ | system/light/dark via localStorage |
@@ -154,7 +154,7 @@ Storage files live under `users/{ownerId}/trees/{treeId}/persons/...` regardless
 
 | Limitation | Impact |
 |------------|--------|
-| No living-person redaction on public trees | Living people's full details visible to any authenticated user with access |
+| No living-person redaction on public trees | ~~Living people's full details visible~~ **Fixed in Milestone 1** — client-side redaction; Firestore still returns full records |
 | No pending invite system | Cannot invite someone who has not signed up yet |
 | No GEDCOM import preview | Import merges immediately; mistakes are hard to undo |
 | No guest/public viewing route | "Public tree" link requires login; product promise of shareable read-only URL not fully delivered |
@@ -180,7 +180,7 @@ Ordered by product impact and dependency. Each item is sized for one focused com
 
 ---
 
-### Milestone 1: Living person privacy in public trees
+### Milestone 1: Living person privacy in public trees ✅ DONE
 
 **User value:** Families can safely share trees publicly without exposing living relatives' birth dates, places, photos, or bios.
 
@@ -190,7 +190,7 @@ Ordered by product impact and dependency. Each item is sized for one focused com
 - Tree owner and editors see full data regardless
 - Private trees unchanged
 
-**Implementation intent:** Add a `canViewFullPerson(tree, person, viewerRole)` helper; apply in `FamilyTree`, `PersonCard`, `TreeSearch`, person detail page, and GEDCOM export for anonymous/public context. Consider Firestore rule field filtering only if client-side redaction is insufficient.
+**Implementation note (May 2026):** Added `personPrivacy.ts` + `useTreePrivacy` hook. Redaction applied in FamilyTree, PersonCard, TreeSearch, person detail page, relation links, and GEDCOM export. Client-side only — raw Firestore data remains accessible to determined clients; server-side field filtering deferred.
 
 ---
 
