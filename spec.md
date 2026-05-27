@@ -1,206 +1,336 @@
-# OpenTree Spec — Competing with Ancestry.com
+# OpenTree — Product Specification
 
-## Guiding Principles
+Authoritative product spec and roadmap for OpenTree. Supersedes prior planning documents including the old `spec.md` competitor-gap checklist.
 
-1. **Free and open source** — this is our core differentiator. No paywalls, no subscriptions, no locked features.
-2. **Data freedom** — users own their data. Full export, standard formats, no lock-in.
-3. **Modern and fast** — clean UI, fast interactions, no legacy cruft.
-4. **Relationships are the product** — a family tree app without working relationships is not a family tree app. This is job #1.
+For agent/development instructions, see [AGENTS.md](./AGENTS.md).
 
 ---
 
-## 1. Table Stakes Gaps
+## 1. Product overview
 
-Things Ancestry has that we're missing entirely. Must add to be a credible family tree app.
+### Product promise
 
-### 1.1 Working Relationships & Connected Tree Visualization ✅ DONE
-- **What we have**: Persons exist in a tree but have zero connections. The `relationships` subcollection is defined but never written to or read. The "tree view" is a flat grid of person cards.
-- **What Ancestry does**: Full parent/child, spouse, and sibling relationships. Pedigree chart shows ancestors branching upward. Family view shows a couple with their children below.
-- **What we'll build**:
-  - **Relationship CRUD**: When viewing a person, users can add relationships: "Add Parent", "Add Spouse", "Add Child". Each creates a bidirectional relationship (adding a parent to Person A also adds Person A as a child of the parent). Users can link to an existing person in the tree or create a new person inline.
-  - **Relationship types**: parent/child, spouse (with optional marriage date/end date). Sibling is inferred (shared parent), not stored directly.
-  - **Connected tree visualization**: Replace the flat grid with an actual family tree. Use d3-hierarchy to render a pedigree-style chart: selected person in the center, ancestors branching upward, descendants branching downward, spouses shown side-by-side. Connecting lines between related persons.
-  - **Person detail shows relationships**: The person detail page shows parents, spouse(s), children, and siblings in clearly labeled sections with clickable links.
+OpenTree is a **free, open-source family tree builder** that lets anyone create rich family histories, visualize relationships, collaborate with relatives, and **own their data** — full GEDCOM export plus a ZIP of all media, with no subscription or lock-in.
 
-### 1.2 Search Within Tree ✅ DONE
-- **What we have**: Nothing. No way to find a person except scrolling.
-- **What Ancestry does**: Search across trees and records by name, date, place.
-- **What we'll build**:
-  - **Tree search bar**: A search input at the top of the tree view page. Filters persons in real-time by first name, last name, or maiden name. Case-insensitive substring match.
-  - **Search highlights**: Matching persons are highlighted in both tree view and list view. Clicking a result selects and centers on that person in the tree visualization.
+Licensed under **GNU AGPL v3**. Deployed on **Vercel** with **Firebase** as the backend.
 
-### 1.3 GEDCOM Export ✅ DONE
-- **What we have**: Nothing. No data export of any kind.
-- **What Ancestry does**: GEDCOM import and export (text-only, no media).
-- **What we'll build**:
-  - **GEDCOM export**: A "Download GEDCOM" button in tree settings. Generates a standard GEDCOM 5.5.1 file containing all persons, relationships, and events in the tree. Does not include media files (standard GEDCOM limitation) but includes references to them.
-  - **Implementation**: Client-side generation. Build the GEDCOM text from Firestore data, create a Blob, trigger download. No server needed.
+### Target users
 
-### 1.4 GEDCOM Import ✅ DONE
-- **What we have**: Nothing.
-- **What Ancestry does**: Upload a GEDCOM file to create or populate a tree.
-- **What we'll build**:
-  - **GEDCOM import**: An "Import GEDCOM" option when creating a new tree. User uploads a `.ged` file. The app parses it client-side, extracts persons and relationships, and creates Firestore documents in a new tree.
-  - **Preview before import**: Show a summary (X persons, Y families found) before committing.
-  - **Implementation**: Client-side GEDCOM parsing. Use a lightweight parser or build one — GEDCOM is a simple line-based format.
+| Segment | Need |
+|---------|------|
+| Family historians | Build accurate trees, attach sources and media, export and preserve data |
+| Casual genealogists | Quick onboarding, intuitive tree view, add parents/grandparents without training |
+| Collaborating families | Share a tree with relatives; editors contribute, viewers browse |
+| Privacy-conscious users | Control public vs private visibility; *(living-person redaction planned — see gaps)* |
+| Open-source advocates | Self-hostable stack, no vendor lock-in, inspectable code |
 
-### 1.5 Sharing & Collaboration ✅ DONE
-- **What we have**: Nothing. Trees are single-user.
-- **What Ancestry does**: Invite family members to view or edit a shared tree.
-- **What we'll build**:
-  - **Invite by email**: Tree owner can invite collaborators from tree settings. Enter an email, choose role (viewer or editor).
-  - **Roles**: Owner (full control + delete), Editor (add/edit/delete persons, photos, documents, events), Viewer (read-only access).
-  - **Data model**: `trees/{treeId}/members/{memberId}` subcollection with `{ userId, email, role, invitedAt, acceptedAt }`. The tree document gets a `memberIds` array for Firestore rules query filtering.
-  - **Firestore rules update**: Allow read/write access to tree members based on role. Viewers can read, editors can read+write, owner has full access.
-  - **Pending invites**: If the invited email isn't a registered user, store the invite. When they sign up and verify email, match pending invites and grant access.
-  - **Tree list**: Dashboard shows both owned trees and trees shared with the user.
+### Core workflows
 
-### 1.6 Relationship Calculator ✅ DONE
-- **What we have**: Nothing.
-- **What Ancestry does**: Shows how two people in a tree are related (e.g., "2nd cousin once removed").
-- **What we'll build**:
-  - **"How are we related?" feature**: Select two persons in the tree. The app calculates and displays their relationship path (e.g., "John is the grandfather of Mary" or "John and Mary are 1st cousins").
-  - **Algorithm**: BFS/shortest-path through the relationship graph. Calculate generational distance to common ancestor(s) to determine cousin degree and removal.
-  - **UI**: A button or mode in tree view: "Calculate Relationship". Click two persons. Show the result as text plus the path highlighted on the tree.
+1. **Sign up / sign in** → verify email → land on dashboard
+2. **First tree** → onboarding wizard (tree name → yourself → optional parents) or create tree manually
+3. **Build tree** → add people, link relationships, visualize connected pedigree, search/filter
+4. **Enrich profiles** → photos, documents, timeline events, bio and vital facts
+5. **Collaborate** → invite members by email (viewer/editor), toggle public visibility
+6. **Export / import** → GEDCOM download, GEDCOM import into existing tree, full ZIP backup
+7. **Discover connections** → relationship calculator between any two people in a tree
 
-### 1.7 Privacy Controls ✅ DONE
-- **What we have**: All trees are private. No public visibility option.
-- **What Ancestry does**: Public/private toggle. Living people's details auto-hidden in public trees.
-- **What we'll build**:
-  - **Tree privacy setting**: Owner can set a tree as "Private" (default, only owner and invited members) or "Public" (anyone with the link can view, but cannot edit).
-  - **Living person protection**: In public trees, persons marked as `isLiving: true` have their details hidden (show name and "Living" only — no dates, places, bio, or photos).
-  - **Shareable link**: Public trees get a shareable read-only URL.
+### Product goals
+
+1. **Relationships are the product** — a working connected tree is non-negotiable
+2. **Data freedom** — export everything, standard formats, no hostage data
+3. **Modern UX** — fast, clean, mobile-responsive, dark mode
+4. **Free and complete** — no paywalled features
+5. **Trustworthy collaboration** — clear roles, activity visibility, privacy controls
 
 ---
 
-## 2. Improvement Opportunities
+## 2. Current application state
 
-Things we both have (or will have) but where we can do better than Ancestry.
+*Verified by code review, May 2026. Items marked **(inferred)** are conclusions from code inspection, not user-tested claims.*
 
-### 2.1 Onboarding Flow ✅ DONE
-- **What we have**: Empty dashboard, no guidance.
-- **What Ancestry does**: Multi-step wizard starting with yourself, then parents, then grandparents.
-- **What we'll build**:
-  - **First tree wizard**: When a user has zero trees, show a guided flow instead of an empty state:
-    1. "Let's start your family tree" — enter tree name
-    2. "Start with yourself" — enter your name, birth date, gender
-    3. "Add your parents" — two simple forms for mother and father (optional, can skip)
-    4. Tree is created with you as root person, parents linked
-  - **This replaces the current empty dashboard state**. After completing the wizard (or skipping it), the user sees their tree.
+### What the app does today
 
-### 2.2 Person Detail Page ✅ DONE
-- **What we have**: Basic bio display with links to photos/documents/timeline as separate pages.
-- **What Ancestry does**: Rich person page with facts, sources, photos, family members, hints — all on one page with tabs.
-- **What we'll build**:
-  - **Tabbed layout**: Single person page with tabs: Overview, Photos, Documents, Timeline.
-  - **Overview tab**: Bio, key facts (birth, death, gender), relationship section (parents, spouses, children, siblings with clickable cards), and quick-add buttons for relationships.
-  - **This consolidates the current separate pages** into a single page with client-side tab switching. Reduces navigation and page loads.
+OpenTree is a fully client-rendered Next.js app. Users authenticate via Firebase Auth; all reads/writes go directly from the browser to Firestore and Storage, enforced by security rules.
 
-### 2.3 Tree Visualization ✅ DONE
-- **What we have**: Flat grid with D3 zoom/pan. No relationship lines.
-- **What Ancestry does**: Pedigree chart (ancestors only, expanding left-to-right), family group view.
-- **What we'll build**:
-  - **Pedigree chart**: Rooted at a selected person. Parents above, children below, spouses side-by-side. Connected with lines. Uses d3-hierarchy for layout.
-  - **Navigation**: Click any person to re-root the tree on them. Double-click to open person detail.
-  - **Minimap or zoom indicator**: Show current zoom level and a reset button (already have reset).
-  - **Responsive nodes**: Person nodes show name, lifespan, and a small avatar. Selected node is highlighted.
+### Feature inventory
 
-### 2.4 Activity Feed ✅ DONE
-- **What we have**: Nothing.
-- **What Ancestry does**: Shows recent changes to the tree.
-- **What we'll build**:
-  - **Simple activity log**: When a person is added, edited, or deleted, or a photo/document/event is added, record an activity entry in `trees/{treeId}/activity/{activityId}` with `{ type, description, userId, personId?, timestamp }`.
-  - **Activity feed on dashboard**: Show recent activity across all user's trees. "You added John Smith to Smith Family Tree — 2 hours ago".
-  - **Activity feed on tree page**: Show recent activity for that specific tree in a collapsible sidebar panel.
+| Area | Status | Notes |
+|------|--------|-------|
+| Email/password auth | ✅ | Signup requires email verification |
+| Google OAuth | ✅ | Popup-based |
+| Email link (passwordless) | ✅ | Email stored in localStorage for return trip |
+| Password reset | ✅ | |
+| Onboarding wizard | ✅ | 3-step first-tree flow when user has zero trees |
+| Dashboard | ✅ | Owned + shared trees, person counts, activity summary |
+| Create / delete trees | ✅ | Cascade delete of persons, relationships, members, activity, storage |
+| D3 family tree visualization | ✅ | Custom BFS layout (`familyTreeLayout.ts`), zoom/pan, re-root |
+| List view toggle | ✅ | Alternative to tree visualization |
+| In-tree search | ✅ | Filter by name; selects and re-roots |
+| Person CRUD | ✅ | Full biographical fields + `isLiving` flag |
+| Relationship CRUD | ✅ | Parent, child, spouse; tree-level storage |
+| Relationship validation | ✅ | Duplicates, cycles, age warnings (warnings, not hard blocks) |
+| Inferred siblings | ✅ | From shared parents |
+| Inferred step-relationships | ✅ | Computed on person detail page |
+| Relationship calculator | ✅ | BFS shortest path + cousin degree |
+| Person detail tabs | ✅ | Overview, Photos, Documents, Timeline |
+| Photo gallery | ✅ | Upload, lightbox, set profile photo, delete |
+| Document management | ✅ | Typed uploads (PDF/images), view, delete |
+| Timeline events | ✅ | Birth, death, marriage, etc. |
+| GEDCOM export | ✅ | Client-side 5.5.1 generation |
+| GEDCOM import | ⚠️ Partial | Imports immediately into current tree; **no preview step** |
+| Full ZIP export | ✅ | GEDCOM + all photos/documents per person |
+| Member sharing | ⚠️ Partial | Invite by email works **only if invitee already has an account** |
+| Public/private toggle | ⚠️ Partial | Toggle exists; **no living-person redaction**; **no guest viewing route** |
+| Activity feed | ⚠️ Partial | Logged on tree page for person add/delete/relationship add; **not all CRUD paths** |
+| User settings | ✅ | Display name, photo, password, theme |
+| Dark mode | ✅ | system/light/dark via localStorage |
+| Error boundaries | ✅ | Auth and dashboard route groups |
+
+### Current user flows
+
+```
+/auth routes (GuestGuard)
+  login | signup | forgot-password | verify-email | email-link
+
+/dashboard routes (AuthGuard — requires auth + verified email)
+  /                     Dashboard
+  /settings             Profile & theme
+  /tree/[treeId]        Tree visualization + settings modal
+  /person/[personId]    Tabbed person detail (+ /edit, /photos, /documents, /timeline)
+```
+
+### Integrations
+
+| Service | Usage |
+|---------|-------|
+| Firebase Auth | All authentication |
+| Cloud Firestore | Trees, persons, relationships, members, activity, users |
+| Firebase Storage | Profile photos, person photos, documents |
+| Vercel | Hosting/deployment **(inferred from docs and Next.js setup)** |
+| Google OAuth | Social login via Firebase |
+
+No third-party analytics, payment, email delivery (beyond Firebase Auth emails), or record-database integrations.
+
+### Architecture summary
+
+- **Frontend:** Next.js 16 App Router, React 19, TypeScript strict, Tailwind CSS 4
+- **State:** Zustand (`authStore`, `treeStore`) + per-hook fetch state
+- **Data access:** Firebase client SDK modules in `src/lib/firebase/`
+- **Validation:** Zod schemas in `src/lib/utils/validation.ts`
+- **Visualization:** D3 selection/zoom/transition + custom layout (not d3-hierarchy)
+- **Security:** `firestore.rules` and `storage.rules` — no server-side enforcement layer
+- **No API routes, Server Actions, middleware, Admin SDK, background jobs, or cron**
+
+### Data model
+
+```
+users/{userId}
+trees/{treeId}
+  ├── relationships/{id}     type: parent-child | spouse
+  ├── members/{userId}       role: editor | viewer
+  ├── activity/{id}          append-only audit log
+  └── persons/{personId}
+        ├── photos/{id}
+        ├── documents/{id}
+        └── events/{id}
+```
+
+Relationships are stored at the **tree level** (one query loads all). `buildAdjacencyMap()` resolves the graph for display and export.
+
+Storage files live under `users/{ownerId}/trees/{treeId}/persons/...` regardless of which member uploaded them.
+
+### Technical constraints
+
+1. **Client-only architecture** — all business logic runs in the browser; secrets cannot be hidden
+2. **Firestore batch limit** — 500 operations per batch (handled in `batchDeleteDocs`)
+3. **No real-time listeners** — data fetched on mount and after mutations; no `onSnapshot` **(inferred)**
+4. **Auth guards are client-side** — dashboard routes flash loader then redirect; not server-enforced
+5. **Public tree reads require authentication** in Firestore rules — unauthenticated users cannot read even public trees
+6. **Storage reads require authentication** — public guest viewing would need rule changes
+7. **No automated test suite** — quality relies on lint + build + manual testing
+8. **No `.env.local.example`** — new developers must create `.env.local` manually from Firebase console
+
+### Known limitations
+
+| Limitation | Impact |
+|------------|--------|
+| No living-person redaction on public trees | Living people's full details visible to any authenticated user with access |
+| No pending invite system | Cannot invite someone who has not signed up yet |
+| No GEDCOM import preview | Import merges immediately; mistakes are hard to undo |
+| No guest/public viewing route | "Public tree" link requires login; product promise of shareable read-only URL not fully delivered |
+| Activity logging incomplete | Edits from person pages, photo/doc/event changes may not appear in feed |
+| No duplicate-person detection | Large imports or manual entry can create duplicates |
+| No person merge | Fixing duplicates requires manual cleanup |
+| No source/citation model | Records cannot be attached as structured sources |
+| No printable chart export | Tree visualization is screen-only |
+| Step-relationships not stored | Recomputed each render; cannot edit or override |
+| README is boilerplate | GitHub landing page does not describe the project |
+
+### Abandoned or partial systems
+
+- **Old flat-grid tree view** — replaced by connected D3 pedigree (confirmed removed)
+- **Per-person relationship subcollections** — migrated to tree-level relationships **(inferred from architecture)**
+- **competitor-analysis.md** — retained as market research archive; not a living roadmap (see pointer at top of that file)
 
 ---
 
-## 3. Differentiators
+## 3. Product roadmap
 
-Things we can do that Ancestry doesn't, or ways we can be meaningfully better.
-
-### 3.1 Completely Free
-- No subscription tiers, no paywalls, no upsells. Every feature available to every user.
-- This is not a feature to build — it's a positioning choice that's already made.
-
-### 3.2 Full Data Export (Including Media) ✅ DONE
-- **What Ancestry does**: GEDCOM export (text only, no photos/documents).
-- **What we'll build**:
-  - **Full tree export**: Download a ZIP file containing the GEDCOM file plus all photos and documents organized in folders per person.
-  - **This directly exploits Ancestry's #1 complaint**: losing access to records and media when you cancel.
-
-### 3.3 Smart Relationship Inference ✅ DONE
-- **What Ancestry does**: Manually define every relationship.
-- **What we'll build**:
-  - **Auto-infer siblings**: If Person A and Person B share a parent, they're siblings. Display this automatically without storing a separate sibling relationship.
-  - **Auto-infer step-relationships**: If Parent A has a spouse B, and B is not the biological parent of A's children, show B as step-parent.
-  - **Relationship validation**: Warn if a relationship creates an impossible situation (e.g., someone being their own ancestor, birth date after death date of a parent).
-
-### 3.4 User Profile & Settings ✅ DONE
-- **What we have**: No profile or settings page.
-- **What we'll build**:
-  - **Profile page**: Update display name and profile photo. View email (read-only). Change password (for email/password users).
-  - **Settings**: Theme preference (system/light/dark), notification preferences (future).
+Ordered by product impact and dependency. Each item is sized for one focused commit sequence on `dev`.
 
 ---
 
-## 4. Not Doing
+### Milestone 1: Living person privacy in public trees
 
-Things Ancestry has that we're intentionally skipping.
+**User value:** Families can safely share trees publicly without exposing living relatives' birth dates, places, photos, or bios.
 
-### 4.1 Historical Records Database
-Ancestry's 30B+ record database is their core moat and costs hundreds of millions to maintain. We're a tree-building tool, not a records service. Users can search FamilySearch.org (free) or other services for records and manually attach findings.
+**Acceptance criteria:**
+- When a tree is public, persons with `isLiving: true` show name + "Living" only in tree view, list view, search results, and person detail
+- Living persons' photos, documents, timeline, and bio are hidden from non-owner/non-editor viewers
+- Tree owner and editors see full data regardless
+- Private trees unchanged
 
-### 4.2 DNA Testing & Matching
-Hardware product requiring lab partnerships, regulatory compliance, and massive infrastructure. Completely out of scope.
-
-### 4.3 Ancestry Hints / Auto-Record Matching
-Requires the records database above. Without it, there's nothing to match against.
-
-### 4.4 AI Photo Recognition
-Requires significant ML infrastructure. Could be a future feature but not in scope now.
-
-### 4.5 Mobile Native Apps
-We're responsive web. A PWA is possible later but native iOS/Android apps are out of scope.
-
-### 4.6 Newspapers.com / Fold3 Integration
-Third-party paid archives. Not relevant to our free, open-source approach.
-
-### 4.7 Pro Tools (Tree Checker, Tree Mapper, Charts & Reports)
-Nice-to-have features but not table stakes. Can add later. Relationship validation (3.3) covers the most important part of "tree checker."
+**Implementation intent:** Add a `canViewFullPerson(tree, person, viewerRole)` helper; apply in `FamilyTree`, `PersonCard`, `TreeSearch`, person detail page, and GEDCOM export for anonymous/public context. Consider Firestore rule field filtering only if client-side redaction is insufficient.
 
 ---
 
-## Implementation Priority
+### Milestone 2: GEDCOM import preview
 
-### Batch 1: Relationships & Tree Visualization (Foundation)
-Without this, we don't have a family tree app. Everything else depends on relationships working.
-- 1.1 Working Relationships & Connected Tree Visualization
-- 2.3 Tree Visualization improvements
+**User value:** Users can review what an import will add before modifying their tree.
 
-### Batch 2: Person Detail Consolidation
-Improve the core person experience before adding more features.
-- 2.2 Person Detail Page (tabbed layout with relationships)
-- 3.3 Smart Relationship Inference
+**Acceptance criteria:**
+- Selecting a `.ged` file shows a summary modal: person count, family count, sample names
+- User confirms or cancels; no Firestore writes until confirm
+- Clear warning when importing into a non-empty tree (merge, not replace)
+- Errors (malformed file) shown before any writes
 
-### Batch 3: Search & Navigation
-Make large trees usable.
-- 1.2 Search Within Tree
-- 2.1 Onboarding Flow
+**Implementation intent:** Split `handleImportGedcom` in `tree/[treeId]/page.tsx` — parse first, show `ConfirmModal`, commit on approval. Reuse existing `parseGedcom()`.
 
-### Batch 4: Data Portability
-Table-stakes GEDCOM support.
-- 1.3 GEDCOM Export
-- 1.4 GEDCOM Import
+---
 
-### Batch 5: Collaboration & Sharing
-Multi-user support.
-- 1.5 Sharing & Collaboration
-- 1.7 Privacy Controls
+### Milestone 3: Pending collaboration invites
 
-### Batch 6: Polish & Extras
-Differentiation and quality-of-life.
-- 1.6 Relationship Calculator
-- 2.4 Activity Feed
-- 3.2 Full Data Export (ZIP with media)
-- 3.4 User Profile & Settings
+**User value:** Tree owners can invite relatives who have not signed up yet; access granted automatically on signup.
+
+**Acceptance criteria:**
+- Inviting unknown email creates a pending invite (not an error)
+- On signup + email verification, pending invites resolve to `members/` docs and `memberIds`
+- Owner sees pending vs accepted status in tree settings
+- Owner can revoke pending invites
+
+**Implementation intent:** New `trees/{treeId}/invites/{inviteId}` subcollection or top-level `invites` collection keyed by email hash. Hook into post-verification flow in `AuthProvider` or signup completion. Update `addTreeMember()` in `members.ts`.
+
+---
+
+### Milestone 4: Public read-only tree viewing
+
+**User value:** Anyone with a link can view a public tree without creating an account.
+
+**Acceptance criteria:**
+- `/tree/[treeId]/public` or similar route accessible without AuthGuard
+- Unauthenticated read of public tree data per updated Firestore rules
+- Living person redaction (Milestone 1) applies
+- No edit affordances for guests
+- Clear CTA to sign up for editing
+
+**Implementation intent:** New route group `(public)` without AuthGuard; relax Firestore read rules for public trees (persons, relationships — not members/activity). Relax Storage read rules for public tree media or serve redacted view without media for living persons.
+
+---
+
+### Milestone 5: Complete activity logging
+
+**User value:** Collaborators see a trustworthy history of all tree changes.
+
+**Acceptance criteria:**
+- Activity entries for: person edit, photo add/delete, document add/delete, event add/delete, relationship delete, GEDCOM import, member add/remove
+- Dashboard consolidated feed includes all entry types
+- Logged user display name and timestamp on each entry
+
+**Implementation intent:** Centralize `logActivity()` calls in hooks (`usePerson`, `usePhotos`, `useDocuments`, `useTimeline`, `useRelationships`, `useMembers`) rather than only tree page handlers.
+
+---
+
+### Milestone 6: Duplicate person detection
+
+**User value:** Users avoid cluttered trees from accidental double-entry or messy GEDCOM imports.
+
+**Acceptance criteria:**
+- When adding a person or confirming GEDCOM import, warn if similar name + overlapping birth year exists
+- Warning is dismissible; not a hard block
+- "View possible duplicate" link to existing person
+
+**Implementation intent:** `findSimilarPersons(name, birthYear, persons[])` utility; integrate in `PersonForm` submit and GEDCOM preview (Milestone 2).
+
+---
+
+### Milestone 7: Printable pedigree export
+
+**User value:** Users can print or share a beautiful chart — a tangible output competitors charge for.
+
+**Acceptance criteria:**
+- "Export chart" action on tree view produces PDF or SVG of current rooted pedigree
+- Output includes names and lifespan; respects living person redaction
+- Readable at A4/Letter print size
+
+**Implementation intent:** Render SVG from existing layout coordinates (`familyTreeLayout.ts`); convert via browser print API or lightweight SVG→PDF library.
+
+---
+
+### Milestone 8: Real-time collaborative updates
+
+**User value:** Multiple editors see each other's changes without manual refresh.
+
+**Acceptance criteria:**
+- When another editor adds/edits a person in the same tree, local view updates within seconds
+- No duplicate fetch storms; unsubscribe on unmount
+
+**Implementation intent:** Replace one-shot `getDocs` in `usePerson` / tree page with Firestore `onSnapshot` listeners scoped to active tree.
+
+---
+
+### Milestone 9: Person merge
+
+**User value:** Users can fix duplicate entries without manual relationship rewiring.
+
+**Acceptance criteria:**
+- Select two persons → merge into one survivor
+- Relationships, photos, documents, events combined; duplicate relationships deduplicated
+- Merge is irreversible with confirmation modal
+
+**Implementation intent:** Transaction or batched writes: re-point relationships, move subcollections, delete merged person.
+
+---
+
+### Milestone 10: Source citations
+
+**User value:** Serious genealogists can attach evidence to facts, building trust in the tree.
+
+**Acceptance criteria:**
+- Add source to a person (title, url or file, date, notes)
+- Sources listed on person Overview tab
+- Included in GEDCOM export (`SOUR` records)
+
+**Implementation intent:** New `sources` subcollection under person; lightweight form; extend `gedcom.ts` export.
+
+---
+
+## Out of scope
+
+These are intentionally **not** on the roadmap (see `competitor-analysis.md` for rationale):
+
+- Historical records database or hint system
+- DNA testing / matching
+- AI photo recognition
+- Native mobile apps (responsive web is sufficient for now)
+- Newspapers.com / paid archive integrations
+
+---
+
+## Related documents
+
+| Document | Purpose |
+|----------|---------|
+| [AGENTS.md](./AGENTS.md) | Agent/developer instructions |
+| [competitor-analysis.md](./competitor-analysis.md) | Archived Ancestry.com market research |
+| [LICENSE.md](./LICENSE.md) | GNU AGPL v3 |
+| [README.md](./README.md) | Quick start for humans |
