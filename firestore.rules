@@ -13,9 +13,12 @@ service cloud.firestore {
       // Owner can read their own doc
       allow get: if isAuthenticated() && request.auth.uid == userId;
 
-      // Email lookup for sharing invites — must be an equality filter on email
+      // Email lookup for sharing invites — equality filter on email required
       allow list: if isAuthenticated()
-        && request.query.limit <= 1;
+        && request.query.limit <= 1
+        && request.query.filters.size() == 1
+        && request.query.filters[0].field.path.last() == 'email'
+        && request.query.filters[0].op == '==';
 
       // Create own user doc on signup
       allow create: if isAuthenticated()
@@ -89,6 +92,7 @@ service cloud.firestore {
           && isTreeOwner(treeId)
           && request.resource.data.userId == resource.data.userId
           && request.resource.data.email == resource.data.email
+          && request.resource.data.role in ['editor', 'viewer']
           && request.resource.data.diff(resource.data).affectedKeys()
               .hasOnly(['role', 'displayName']);
 
@@ -149,7 +153,22 @@ service cloud.firestore {
           && request.resource.data.gender in ['male', 'female', 'other', 'unknown']
           && request.resource.data.isLiving is bool;
 
-        allow update: if isAuthenticated() && canEditTree(treeId);
+        allow update: if isAuthenticated()
+          && canEditTree(treeId)
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly([
+                'firstName', 'lastName', 'middleName', 'maidenName', 'gender',
+                'birthDate', 'birthPlace', 'deathDate', 'deathPlace', 'isLiving',
+                'profilePhotoUrl', 'bio', 'updatedAt'
+              ])
+          && request.resource.data.firstName is string
+          && request.resource.data.firstName.size() >= 1
+          && request.resource.data.firstName.size() <= 100
+          && request.resource.data.lastName is string
+          && request.resource.data.lastName.size() >= 1
+          && request.resource.data.lastName.size() <= 100
+          && request.resource.data.gender in ['male', 'female', 'other', 'unknown']
+          && request.resource.data.isLiving is bool;
         allow delete: if isAuthenticated() && canEditTree(treeId);
 
         // ── Photos ────────────────────────────────────────────

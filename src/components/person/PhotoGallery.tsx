@@ -14,12 +14,14 @@ import type { Photo } from '@/lib/types';
 interface PhotoGalleryProps {
   treeId: string;
   personId: string;
+  treeOwnerId: string;
 }
 
-export function PhotoGallery({ treeId, personId }: PhotoGalleryProps) {
+export function PhotoGallery({ treeId, personId, treeOwnerId }: PhotoGalleryProps) {
   const { photos, loading, upload, remove, setAsProfile } = usePhotos(
     treeId,
-    personId
+    personId,
+    treeOwnerId
   );
   const [uploading, setUploading] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);

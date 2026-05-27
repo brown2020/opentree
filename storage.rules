@@ -10,57 +10,60 @@ service firebase.storage {
 
     // ── Profile photos: users/{userId}/profile/{fileName} ───────
     match /users/{userId}/profile/{fileName} {
-      // Any authenticated user can read (needed for avatars in header, cards)
       allow read: if request.auth != null;
 
-      // Only the owning user can upload: image only, max 5 MB, one-segment filename
       allow create: if request.auth != null
         && request.auth.uid == userId
         && request.resource.size < 5 * 1024 * 1024
         && request.resource.contentType.matches('image/(jpeg|png|gif|webp|svg\\+xml)')
         && !fileName.matches('.*\\.\\.');
 
-      // Owner can overwrite their profile photo
       allow update: if request.auth != null
         && request.auth.uid == userId
         && request.resource.size < 5 * 1024 * 1024
         && request.resource.contentType.matches('image/(jpeg|png|gif|webp|svg\\+xml)');
 
-      // Owner can delete
       allow delete: if request.auth != null
         && request.auth.uid == userId;
     }
 
-    // ── Tree media: users/{userId}/trees/{treeId}/persons/{personId}/{type}/{fileName}
-    match /users/{userId}/trees/{treeId}/persons/{personId}/{type}/{fileName} {
+    // ── Tree media: users/{ownerId}/trees/{treeId}/persons/{personId}/{type}/{fileName}
+    match /users/{ownerId}/trees/{treeId}/persons/{personId}/{type}/{fileName} {
 
-      // Any authenticated user can read (Firestore rules protect the URL
-      // references; shared tree members need to view media)
-      allow read: if request.auth != null;
+      allow read: if request.auth != null
+        && canAccessTreeMedia(treeId, ownerId);
 
-      // Only the owning user can upload, with type-specific validation
       allow create: if request.auth != null
-        && request.auth.uid == userId
+        && canEditTreeMedia(treeId, ownerId)
         && !fileName.matches('.*\\.\\.')
         && validateMediaFile(type);
 
-      // Owner can overwrite (e.g. thumbnail regeneration)
       allow update: if request.auth != null
-        && request.auth.uid == userId
+        && canEditTreeMedia(treeId, ownerId)
         && validateMediaFile(type);
 
-      // Only the owning user can delete their files
       allow delete: if request.auth != null
-        && request.auth.uid == userId;
+        && canEditTreeMedia(treeId, ownerId);
     }
 
-    // ── Validation helper ───────────────────────────────────────
+    function canAccessTreeMedia(treeId, ownerId) {
+      let tree = firestore.get(/databases/(default)/documents/trees/$(treeId)).data;
+      return request.auth.uid == ownerId
+        || (tree.memberIds is list && request.auth.uid in tree.memberIds)
+        || tree.isPublic == true;
+    }
+
+    function canEditTreeMedia(treeId, ownerId) {
+      return request.auth.uid == ownerId
+        || (firestore.get(/databases/(default)/documents/trees/$(treeId)).data.memberIds is list
+            && request.auth.uid in firestore.get(/databases/(default)/documents/trees/$(treeId)).data.memberIds
+            && firestore.get(/databases/(default)/documents/trees/$(treeId)/members/$(request.auth.uid)).data.role == 'editor');
+    }
+
     function validateMediaFile(type) {
-      // Photos: max 10 MB, image types only
       return (type == 'photos'
         && request.resource.size < 10 * 1024 * 1024
         && request.resource.contentType.matches('image/(jpeg|png|gif|webp|svg\\+xml|heic|heif)'))
-      // Documents: max 25 MB, PDF or image types
       || (type == 'documents'
         && request.resource.size < 25 * 1024 * 1024
         && (request.resource.contentType.matches('image/(jpeg|png|gif|webp)')

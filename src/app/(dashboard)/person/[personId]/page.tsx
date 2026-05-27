@@ -531,12 +531,12 @@ function PersonDetailContent() {
         </div>
       )}
 
-      {activeTab === 'photos' && (
-        <PhotoGallery treeId={treeId} personId={personId} />
+      {activeTab === 'photos' && tree && (
+        <PhotoGallery treeId={treeId} personId={personId} treeOwnerId={tree.userId} />
       )}
 
-      {activeTab === 'documents' && (
-        <DocumentList treeId={treeId} personId={personId} />
+      {activeTab === 'documents' && tree && (
+        <DocumentList treeId={treeId} personId={personId} treeOwnerId={tree.userId} />
       )}
 
       {activeTab === 'timeline' && (

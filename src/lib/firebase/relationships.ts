@@ -119,13 +119,19 @@ export function buildAdjacencyMap(
 
     if (rel.type === 'parent-child') {
       // person1 is parent, person2 is child
-      if (p2) p2.parents.push(rel.person1Id);
-      if (p1) p1.children.push(rel.person2Id);
+      if (p2) pushUnique(p2.parents, rel.person1Id);
+      if (p1) pushUnique(p1.children, rel.person2Id);
     } else if (rel.type === 'spouse') {
-      if (p1) p1.spouses.push(rel.person2Id);
-      if (p2) p2.spouses.push(rel.person1Id);
+      if (p1) pushUnique(p1.spouses, rel.person2Id);
+      if (p2) pushUnique(p2.spouses, rel.person1Id);
     }
   }
 
   return map;
+}
+
+function pushUnique(list: string[], id: string): void {
+  if (!list.includes(id)) {
+    list.push(id);
+  }
 }

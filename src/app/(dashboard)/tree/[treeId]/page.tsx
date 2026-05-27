@@ -34,8 +34,8 @@ export default function TreePage() {
   const treeId = params.treeId as string;
   const { user } = useAuth();
 
-  const { tree, loading: treeLoading, refetch: refetchTree } = useTreeDetails(treeId);
-  const { loading: personsLoading, create, remove } = usePersons(treeId);
+  const { tree, loading: treeLoading, error: treeError, refetch: refetchTree } = useTreeDetails(treeId);
+  const { loading: personsLoading, create, remove, refetch: refetchPersons } = usePersons(treeId);
   const {
     relationships,
     loading: relsLoading,
@@ -230,6 +230,7 @@ export default function TreePage() {
         }
       }
 
+      refetchPersons();
       refetchRels();
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to import GEDCOM file';
@@ -256,7 +257,9 @@ export default function TreePage() {
   if (!tree) {
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center">
-        <p className="text-gray-500 dark:text-gray-400">Tree not found</p>
+        <p className="text-gray-500 dark:text-gray-400">
+          {treeError ? 'Unable to load this tree. You may not have access.' : 'Tree not found'}
+        </p>
       </div>
     );
   }

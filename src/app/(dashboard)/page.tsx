@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTrees } from '@/lib/hooks/useTree';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -47,30 +47,41 @@ export default function DashboardPage() {
   const [consolidatedActivity, setConsolidatedActivity] = useState<ConsolidatedActivity[]>([]);
   const [activityLoading, setActivityLoading] = useState(true);
 
-  const fetchSharedTrees = useCallback(async () => {
-    if (!user) {
-      setSharedTrees([]);
-      setSharedLoading(false);
-      return;
-    }
-
-    try {
-      const data = await getSharedTrees(user.uid);
-      setSharedTrees(data);
-    } catch {
-      // Non-critical
-    } finally {
-      setSharedLoading(false);
-    }
-  }, [user]);
-
   useEffect(() => {
-    fetchSharedTrees();
-  }, [fetchSharedTrees]);
+    let cancelled = false;
+
+    const run = async () => {
+      if (!user) {
+        if (!cancelled) {
+          setSharedTrees([]);
+          setSharedLoading(false);
+        }
+        return;
+      }
+
+      try {
+        const data = await getSharedTrees(user.uid);
+        if (!cancelled) setSharedTrees(data);
+      } catch {
+        // Non-critical
+      } finally {
+        if (!cancelled) setSharedLoading(false);
+      }
+    };
+
+    setSharedLoading(true);
+    run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   // Fetch person counts for each tree
   useEffect(() => {
     if (trees.length === 0) return;
+
+    let cancelled = false;
 
     const fetchStats = async () => {
       const stats = new Map<string, TreeStats>();
@@ -78,16 +89,20 @@ export default function DashboardPage() {
         trees.map(async (tree) => {
           try {
             const count = await getTreePersonCount(tree.id);
-            stats.set(tree.id, { personCount: count });
+            if (!cancelled) stats.set(tree.id, { personCount: count });
           } catch {
-            stats.set(tree.id, { personCount: 0 });
+            if (!cancelled) stats.set(tree.id, { personCount: 0 });
           }
         })
       );
-      setTreeStats(stats);
+      if (!cancelled) setTreeStats(stats);
     };
 
     fetchStats();
+
+    return () => {
+      cancelled = true;
+    };
   }, [trees]);
 
   // Fetch consolidated activity across all trees
@@ -96,6 +111,8 @@ export default function DashboardPage() {
       setActivityLoading(false);
       return;
     }
+
+    let cancelled = false;
 
     const fetchActivity = async () => {
       setActivityLoading(true);
@@ -114,6 +131,8 @@ export default function DashboardPage() {
           })
         );
 
+        if (cancelled) return;
+
         allActivities.sort((a, b) => {
           const aTime = timestampToDate(a.timestamp)?.getTime() || 0;
           const bTime = timestampToDate(b.timestamp)?.getTime() || 0;
@@ -124,11 +143,15 @@ export default function DashboardPage() {
       } catch {
         // Non-critical
       } finally {
-        setActivityLoading(false);
+        if (!cancelled) setActivityLoading(false);
       }
     };
 
     fetchActivity();
+
+    return () => {
+      cancelled = true;
+    };
   }, [trees]);
 
   const handleCreateTree = async (data: TreeSchemaFormData) => {
