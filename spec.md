@@ -162,7 +162,7 @@ Storage files live under `users/{ownerId}/trees/{treeId}/persons/...` regardless
 | No duplicate-person detection | ✅ | Name + birth year similarity warning on add person and GEDCOM import preview |
 | No person merge | Fixing duplicates requires manual cleanup |
 | No source/citation model | Records cannot be attached as structured sources |
-| No printable chart export | Tree visualization is screen-only |
+| No printable chart export | ✅ | SVG pedigree export from tree view; Letter-sized, privacy-aware |
 | Step-relationships not stored | Recomputed each render; cannot edit or override |
 | README is boilerplate | GitHub landing page does not describe the project |
 
@@ -263,7 +263,7 @@ Ordered by product impact and dependency. Each item is sized for one focused com
 
 ---
 
-### Milestone 7: Printable pedigree export
+### Milestone 7: Printable pedigree export ✅
 
 **User value:** Users can print or share a beautiful chart — a tangible output competitors charge for.
 
@@ -272,7 +272,7 @@ Ordered by product impact and dependency. Each item is sized for one focused com
 - Output includes names and lifespan; respects living person redaction
 - Readable at A4/Letter print size
 
-**Implementation intent:** Render SVG from existing layout coordinates (`familyTreeLayout.ts`); convert via browser print API or lightweight SVG→PDF library.
+**Implementation note (May 2026):** Added `pedigreeChartExport.ts` to render standalone SVG from `layoutFamilyTree` coordinates. Tree view "Export chart" downloads a Letter-sized SVG using privacy-redacted display persons. Users can print the SVG to PDF from any viewer; `printPedigreeChart()` helper included for future use.
 
 ---
 
