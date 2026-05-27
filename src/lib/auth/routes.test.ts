@@ -2,8 +2,18 @@ import { describe, it, expect } from 'vitest';
 import {
   isProtectedRoute,
   isAuthEntryRoute,
+  isPublicTreeRoute,
   shouldSkipMiddleware,
 } from './routes';
+
+describe('isPublicTreeRoute', () => {
+  it('matches public tree viewing paths', () => {
+    expect(isPublicTreeRoute('/tree/abc123/public')).toBe(true);
+    expect(isPublicTreeRoute('/tree/abc123/public/')).toBe(true);
+    expect(isPublicTreeRoute('/tree/abc123')).toBe(false);
+    expect(isPublicTreeRoute('/person/xyz/public')).toBe(false);
+  });
+});
 
 describe('isProtectedRoute', () => {
   it('protects dashboard routes', () => {
@@ -11,6 +21,10 @@ describe('isProtectedRoute', () => {
     expect(isProtectedRoute('/settings')).toBe(true);
     expect(isProtectedRoute('/tree/abc123')).toBe(true);
     expect(isProtectedRoute('/person/xyz?tree=abc')).toBe(true);
+  });
+
+  it('allows public tree viewing without auth', () => {
+    expect(isProtectedRoute('/tree/abc123/public')).toBe(false);
   });
 
   it('allows public auth routes', () => {

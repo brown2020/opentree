@@ -30,8 +30,7 @@ service firebase.storage {
     // ── Tree media: users/{ownerId}/trees/{treeId}/persons/{personId}/{type}/{fileName}
     match /users/{ownerId}/trees/{treeId}/persons/{personId}/{type}/{fileName} {
 
-      allow read: if request.auth != null
-        && canAccessTreeMedia(treeId, ownerId);
+      allow read: if canAccessTreeMedia(treeId, ownerId);
 
       allow create: if request.auth != null
         && canEditTreeMedia(treeId, ownerId)
@@ -48,9 +47,11 @@ service firebase.storage {
 
     function canAccessTreeMedia(treeId, ownerId) {
       let tree = firestore.get(/databases/(default)/documents/trees/$(treeId)).data;
-      return request.auth.uid == ownerId
-        || (tree.memberIds is list && request.auth.uid in tree.memberIds)
-        || tree.isPublic == true;
+      return tree.isPublic == true
+        || (request.auth != null && (
+          request.auth.uid == ownerId
+          || (tree.memberIds is list && request.auth.uid in tree.memberIds)
+        ));
     }
 
     function canEditTreeMedia(treeId, ownerId) {

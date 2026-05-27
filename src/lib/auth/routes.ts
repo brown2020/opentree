@@ -1,8 +1,14 @@
 /** Auth routes that should redirect away when already signed in. */
 export const AUTH_ENTRY_ROUTES = ['/login', '/signup', '/forgot-password'] as const;
 
+/** Public read-only tree view — no auth required. */
+export function isPublicTreeRoute(pathname: string): boolean {
+  return /^\/tree\/[^/]+\/public\/?$/.test(pathname);
+}
+
 /** Routes that require a verified session cookie. */
 export function isProtectedRoute(pathname: string): boolean {
+  if (isPublicTreeRoute(pathname)) return false;
   if (pathname === '/') return true;
   if (pathname === '/settings') return true;
   if (pathname.startsWith('/tree/')) return true;

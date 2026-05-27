@@ -80,7 +80,7 @@ OpenTree is a fully client-rendered Next.js app. Users authenticate via Firebase
 | GEDCOM import | ✅ | Preview modal with counts and sample names before merge |
 | Full ZIP export | ✅ | GEDCOM + all photos/documents per person |
 | Member sharing | ✅ | Invite by email; pending invites for users without accounts |
-| Public/private toggle | ⚠️ Partial | Toggle exists; living-person redaction for non-editors ✅; **no guest viewing route** |
+| Public/private toggle | ✅ | Toggle + guest route at `/tree/[treeId]/public`; living-person redaction for guests |
 | Activity feed | ⚠️ Partial | Logged on tree page for person add/delete/relationship add; **not all CRUD paths** |
 | User settings | ✅ | Display name, photo, password, theme |
 | Dark mode | ✅ | system/light/dark via localStorage |
@@ -145,8 +145,8 @@ Storage files live under `users/{ownerId}/trees/{treeId}/persons/...` regardless
 2. **Firestore batch limit** — 500 operations per batch (handled in `batchDeleteDocs`)
 3. **No real-time listeners** — data fetched on mount and after mutations; no `onSnapshot` **(inferred)**
 4. **Auth guards are client-side** — dashboard routes flash loader then redirect; not server-enforced
-5. **Public tree reads require authentication** in Firestore rules — unauthenticated users cannot read even public trees
-6. **Storage reads require authentication** — public guest viewing would need rule changes
+5. **Public tree guest access** — unauthenticated reads allowed for public trees (persons, relationships); members/activity remain private
+6. **Storage public reads** — public tree media readable without auth; living-person photos still redacted in UI
 7. **No automated test suite** — quality relies on lint + build + manual testing
 8. **No `.env.local.example`** — new developers must create `.env.local` manually from Firebase console
 
@@ -157,7 +157,7 @@ Storage files live under `users/{ownerId}/trees/{treeId}/persons/...` regardless
 | No living-person redaction on public trees | ~~Living people's full details visible~~ **Fixed in Milestone 1** — client-side redaction; Firestore still returns full records |
 | No pending invite system | ~~Cannot invite unsigned users~~ **Fixed in Milestone 3** — pending invites resolve on signup + verification |
 | No GEDCOM import preview | ~~Import merges immediately~~ **Fixed in Milestone 2** — preview modal before commit |
-| No guest/public viewing route | "Public tree" link requires login; product promise of shareable read-only URL not fully delivered |
+| No guest/public viewing route | ~~Requires login~~ **Fixed in Milestone 4** — `/tree/[treeId]/public` read-only route |
 | Activity logging incomplete | Edits from person pages, photo/doc/event changes may not appear in feed |
 | No duplicate-person detection | Large imports or manual entry can create duplicates |
 | No person merge | Fixing duplicates requires manual cleanup |
@@ -222,7 +222,7 @@ Ordered by product impact and dependency. Each item is sized for one focused com
 
 ---
 
-### Milestone 4: Public read-only tree viewing
+### Milestone 4: Public read-only tree viewing ✅ DONE
 
 **User value:** Anyone with a link can view a public tree without creating an account.
 
@@ -233,7 +233,7 @@ Ordered by product impact and dependency. Each item is sized for one focused com
 - No edit affordances for guests
 - Clear CTA to sign up for editing
 
-**Implementation intent:** New route group `(public)` without AuthGuard; relax Firestore read rules for public trees (persons, relationships — not members/activity). Relax Storage read rules for public tree media or serve redacted view without media for living persons.
+**Implementation note (May 2026):** Added `(public)` route group at `/tree/[treeId]/public` with guest layout and read-only tree/list views. Updated Firestore rules for unauthenticated read of public trees (persons, relationships — not members/activity/invites) and Storage rules for public media. `FamilyTree`/`PersonCard` `readOnly` mode; public link copy in tree settings.
 
 ---
 
