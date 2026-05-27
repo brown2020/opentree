@@ -12,7 +12,7 @@ import { useTreeStore } from '@/lib/stores/treeStore';
 import { createPerson, updateTree } from '@/lib/firebase/firestore';
 import { addRelationship } from '@/lib/firebase/relationships';
 import { logActivity } from '@/lib/firebase/activity';
-import { parseGedcom } from '@/lib/utils/gedcom';
+import type { ParsedFamily, ParsedPerson } from '@/lib/utils/gedcom';
 import { Button } from '@/components/ui/Button';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { ConfirmModal } from '@/components/ui/Modal';
@@ -177,12 +177,14 @@ export default function TreePage() {
     setRootPersonId(personId);
   };
 
-  const handleImportGedcom = async (file: File) => {
+  const handleCommitGedcomImport = async (data: {
+    persons: ParsedPerson[];
+    families: ParsedFamily[];
+  }) => {
     setImportError(null);
-    try {
-      const text = await file.text();
-      const { persons: parsedPersons, families } = parseGedcom(text);
+    const { persons: parsedPersons, families } = data;
 
+    try {
       // Create persons and track GEDCOM ID → Firestore ID mapping
       const gedcomToFirestoreId = new Map<string, string>();
 
@@ -241,7 +243,7 @@ export default function TreePage() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to import GEDCOM file';
       setImportError(msg);
-      throw err; // Re-throw so TreeSettingsModal knows it failed
+      throw err;
     }
   };
 
@@ -536,7 +538,7 @@ export default function TreePage() {
         onAddMember={addMember}
         onRemoveMember={removeMember}
         onUpdateMemberRole={updateMemberRole}
-        onImportGedcom={handleImportGedcom}
+        onCommitGedcomImport={handleCommitGedcomImport}
         isOwner={isOwner}
       />
 
