@@ -12,6 +12,8 @@ interface PersonCardProps {
   isSelected?: boolean;
   onClick?: () => void;
   onAddRelationship?: () => void;
+  lifespan?: string | null;
+  readOnly?: boolean;
 }
 
 export function PersonCard({
@@ -20,17 +22,21 @@ export function PersonCard({
   isSelected,
   onClick,
   onAddRelationship,
+  lifespan,
+  readOnly = false,
 }: PersonCardProps) {
   const birthDate = timestampToDate(person.birthDate);
   const deathDate = timestampToDate(person.deathDate);
 
-  const lifespan = (() => {
-    if (!birthDate) return null;
-    const birth = format(birthDate, 'yyyy');
-    if (person.isLiving) return `b. ${birth}`;
-    if (deathDate) return `${birth} - ${format(deathDate, 'yyyy')}`;
-    return `b. ${birth}`;
-  })();
+  const lifespanDisplay =
+    lifespan ??
+    (() => {
+      if (!birthDate) return person.isLiving ? 'Living' : null;
+      const birth = format(birthDate, 'yyyy');
+      if (person.isLiving) return `b. ${birth}`;
+      if (deathDate) return `${birth} - ${format(deathDate, 'yyyy')}`;
+      return `b. ${birth}`;
+    })();
 
   const initials =
     `${person.firstName?.[0] || ''}${person.lastName?.[0] || ''}`.toUpperCase() ||
@@ -73,19 +79,28 @@ export function PersonCard({
       )}
 
       <div className="min-w-0 flex-1">
-        <Link
-          href={`/person/${person.id}?tree=${treeId}`}
-          onClick={(e) => e.stopPropagation()}
-          className="block truncate font-medium text-gray-900 hover:text-emerald-600 dark:text-gray-100 dark:hover:text-emerald-400"
-        >
-          {person.firstName} {person.lastName}
-          {person.maidenName && (
-            <span className="text-gray-500"> (nee {person.maidenName})</span>
-          )}
-        </Link>
-        {lifespan && (
+        {readOnly ? (
+          <span className="block truncate font-medium text-gray-900 dark:text-gray-100">
+            {person.firstName} {person.lastName}
+            {person.maidenName && (
+              <span className="text-gray-500"> (nee {person.maidenName})</span>
+            )}
+          </span>
+        ) : (
+          <Link
+            href={`/person/${person.id}?tree=${treeId}`}
+            onClick={(e) => e.stopPropagation()}
+            className="block truncate font-medium text-gray-900 hover:text-emerald-600 dark:text-gray-100 dark:hover:text-emerald-400"
+          >
+            {person.firstName} {person.lastName}
+            {person.maidenName && (
+              <span className="text-gray-500"> (nee {person.maidenName})</span>
+            )}
+          </Link>
+        )}
+        {lifespanDisplay && (
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {lifespan}
+            {lifespanDisplay}
           </p>
         )}
       </div>

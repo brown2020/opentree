@@ -1,18 +1,17 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { useTreeDetails } from '@/lib/hooks/useTree';
 import { usePersons } from '@/lib/hooks/usePerson';
 import { useRelationships } from '@/lib/hooks/useRelationships';
 import { useMembers } from '@/lib/hooks/useMembers';
-import { useActivity } from '@/lib/hooks/useActivity';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useTreeStore } from '@/lib/stores/treeStore';
 import { createPerson, updateTree } from '@/lib/firebase/firestore';
 import { addRelationship } from '@/lib/firebase/relationships';
-import { logActivity } from '@/lib/firebase/activity';
-import { parseGedcom } from '@/lib/utils/gedcom';
+import { logTreeActivity } from '@/lib/firebase/activity';
+import type { ParsedFamily, ParsedPerson } from '@/lib/utils/gedcom';
 import { Button } from '@/components/ui/Button';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { ConfirmModal } from '@/components/ui/Modal';
@@ -24,6 +23,8 @@ import { AddRelationshipModal } from '@/components/tree/AddRelationshipModal';
 import { TreeSettingsModal } from '@/components/tree/TreeSettingsModal';
 import { RelationshipCalculatorModal } from '@/components/tree/RelationshipCalculatorModal';
 import { ActivityFeed } from '@/components/tree/ActivityFeed';
+import { useTreePrivacy } from '@/lib/hooks/useTreePrivacy';
+import { downloadPedigreeChart } from '@/lib/utils/pedigreeChartExport';
 import type { Person, RelationshipType } from '@/lib/types';
 import type { PersonSchemaFormData } from '@/lib/utils/validation';
 
@@ -34,8 +35,8 @@ export default function TreePage() {
   const treeId = params.treeId as string;
   const { user } = useAuth();
 
-  const { tree, loading: treeLoading, refetch: refetchTree } = useTreeDetails(treeId);
-  const { loading: personsLoading, create, remove } = usePersons(treeId);
+  const { tree, loading: treeLoading, error: treeError, refetch: refetchTree } = useTreeDetails(treeId);
+  const { loading: personsLoading, create, remove, refetch: refetchPersons } = usePersons(treeId);
   const {
     relationships,
     loading: relsLoading,
@@ -44,12 +45,13 @@ export default function TreePage() {
   } = useRelationships(treeId);
   const {
     members,
+    invites,
     add: addMember,
     remove: removeMember,
+    revokeInvite,
     updateRole: updateMemberRole,
   } = useMembers(treeId);
   const { persons, selectedPersonId, setSelectedPersonId } = useTreeStore();
-  const { refetch: refetchActivity } = useActivity(treeId);
 
   const [viewMode, setViewMode] = useState<ViewMode>('tree');
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -67,23 +69,30 @@ export default function TreePage() {
 
   const isOwner = tree?.userId === user?.uid;
   const effectiveRoot = rootPersonId || tree?.rootPersonId || null;
+  const { getDisplayPersons, getLifespanLabel } = useTreePrivacy(tree, members);
+  const displayPersons = useMemo(
+    () => getDisplayPersons(persons),
+    [persons, getDisplayPersons]
+  );
+
+  const handleExportChart = useCallback(() => {
+    const root = effectiveRoot || displayPersons[0]?.id;
+    if (!root || !tree || displayPersons.length === 0) return;
+
+    downloadPedigreeChart({
+      persons: displayPersons,
+      relationships,
+      rootPersonId: root,
+      treeName: tree.name,
+      getLifespanLabel,
+    });
+  }, [effectiveRoot, displayPersons, tree, relationships, getLifespanLabel]);
 
   const handleAddPerson = async (data: PersonSchemaFormData) => {
     setIsAdding(true);
     try {
       await create(data);
       setAddModalOpen(false);
-
-      if (user) {
-        await logActivity(
-          treeId,
-          'person_added',
-          `Added ${data.firstName} ${data.lastName}`,
-          user.uid,
-          user.displayName
-        );
-        refetchActivity();
-      }
     } catch {
       // Error is surfaced by the usePerson hook's error state
     } finally {
@@ -93,22 +102,10 @@ export default function TreePage() {
 
   const handleDeletePerson = async () => {
     if (!deletePerson) return;
-    const name = `${deletePerson.firstName} ${deletePerson.lastName}`;
     setIsDeleting(true);
     try {
       await remove(deletePerson.id);
       setDeletePerson(null);
-
-      if (user) {
-        await logActivity(
-          treeId,
-          'person_deleted',
-          `Removed ${name}`,
-          user.uid,
-          user.displayName
-        );
-        refetchActivity();
-      }
     } catch {
       // Error is surfaced by the usePerson hook's error state
     } finally {
@@ -124,20 +121,6 @@ export default function TreePage() {
     setIsAddingRel(true);
     try {
       await addRel(type, person1Id, person2Id);
-
-      if (user) {
-        const p1 = persons.find((p) => p.id === person1Id);
-        const p2 = persons.find((p) => p.id === person2Id);
-        const label = type === 'spouse' ? 'spouse' : 'parent-child';
-        await logActivity(
-          treeId,
-          'relationship_added',
-          `Added ${label} relationship: ${p1?.firstName || '?'} \u2194 ${p2?.firstName || '?'}`,
-          user.uid,
-          user.displayName
-        );
-        refetchActivity();
-      }
     } catch {
       // Error is surfaced by the useRelationships hook's error state
     } finally {
@@ -171,12 +154,14 @@ export default function TreePage() {
     setRootPersonId(personId);
   };
 
-  const handleImportGedcom = async (file: File) => {
+  const handleCommitGedcomImport = async (data: {
+    persons: ParsedPerson[];
+    families: ParsedFamily[];
+  }) => {
     setImportError(null);
-    try {
-      const text = await file.text();
-      const { persons: parsedPersons, families } = parseGedcom(text);
+    const { persons: parsedPersons, families } = data;
 
+    try {
       // Create persons and track GEDCOM ID → Firestore ID mapping
       const gedcomToFirestoreId = new Map<string, string>();
 
@@ -230,11 +215,21 @@ export default function TreePage() {
         }
       }
 
+      refetchPersons();
       refetchRels();
+
+      if (user) {
+        await logTreeActivity(
+          treeId,
+          { userId: user.uid, userDisplayName: user.displayName },
+          'gedcom_imported',
+          `Imported GEDCOM (${parsedPersons.length} people, ${families.length} families)`
+        );
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to import GEDCOM file';
       setImportError(msg);
-      throw err; // Re-throw so TreeSettingsModal knows it failed
+      throw err;
     }
   };
 
@@ -256,7 +251,9 @@ export default function TreePage() {
   if (!tree) {
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center">
-        <p className="text-gray-500 dark:text-gray-400">Tree not found</p>
+        <p className="text-gray-500 dark:text-gray-400">
+          {treeError ? 'Unable to load this tree. You may not have access.' : 'Tree not found'}
+        </p>
       </div>
     );
   }
@@ -280,8 +277,9 @@ export default function TreePage() {
           {/* Search */}
           <div className="w-48 lg:w-64">
             <TreeSearch
-              persons={persons}
+              persons={displayPersons}
               onSelectPerson={handleSearchSelect}
+              getLifespanLabel={getLifespanLabel}
             />
           </div>
 
@@ -308,6 +306,32 @@ export default function TreePage() {
               List
             </button>
           </div>
+
+          {viewMode === 'tree' && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportChart}
+              disabled={displayPersons.length === 0}
+              aria-label="Export pedigree chart as SVG"
+            >
+              <svg
+                className="-ml-1 mr-1.5 h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 10v6m0 0l-3-3m3 3l3-3M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M4 12V8a4 4 0 014-4h8a4 4 0 014 4v4"
+                />
+              </svg>
+              Export chart
+            </Button>
+          )}
 
           {/* Action buttons */}
           <Button onClick={() => setAddModalOpen(true)} size="sm">
@@ -432,25 +456,27 @@ export default function TreePage() {
           </div>
         ) : viewMode === 'tree' ? (
           <FamilyTree
-            persons={persons}
+            persons={displayPersons}
             relationships={relationships}
             selectedPersonId={selectedPersonId}
             onSelectPerson={setSelectedPersonId}
             treeId={treeId}
             rootPersonId={effectiveRoot}
             onChangeRoot={handleChangeRoot}
+            getLifespanLabel={getLifespanLabel}
           />
         ) : (
           <div className="h-full overflow-y-auto p-4">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {persons.map((person) => (
+              {displayPersons.map((person) => (
                 <PersonCard
                   key={person.id}
                   person={person}
                   treeId={treeId}
                   isSelected={selectedPersonId === person.id}
                   onClick={() => setSelectedPersonId(person.id)}
-                  onAddRelationship={() => handleOpenRelModal(person)}
+                  onAddRelationship={() => handleOpenRelModal(persons.find((p) => p.id === person.id) ?? person)}
+                  lifespan={getLifespanLabel(person)}
                 />
               ))}
             </div>
@@ -485,6 +511,8 @@ export default function TreePage() {
         onClose={() => setAddModalOpen(false)}
         onSubmit={handleAddPerson}
         loading={isAdding}
+        treeId={treeId}
+        existingPersons={persons}
       />
 
       <ConfirmModal
@@ -520,18 +548,20 @@ export default function TreePage() {
         persons={persons}
         relationships={relationships}
         members={members}
+        invites={invites}
         onUpdateTree={handleUpdateTree}
         onAddMember={addMember}
         onRemoveMember={removeMember}
+        onRevokeInvite={revokeInvite}
         onUpdateMemberRole={updateMemberRole}
-        onImportGedcom={handleImportGedcom}
+        onCommitGedcomImport={handleCommitGedcomImport}
         isOwner={isOwner}
       />
 
       <RelationshipCalculatorModal
         isOpen={calcOpen}
         onClose={() => setCalcOpen(false)}
-        persons={persons}
+        persons={displayPersons}
         relationships={relationships}
       />
     </div>

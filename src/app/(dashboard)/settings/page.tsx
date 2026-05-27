@@ -16,6 +16,7 @@ import {
   getDownloadURL,
 } from 'firebase/storage';
 import { auth, db, storage } from '@/lib/firebase/config';
+import { useAuthStore } from '@/lib/stores/authStore';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
@@ -83,6 +84,14 @@ export default function SettingsPage() {
         updatedAt: serverTimestamp(),
       });
 
+      const storeUser = useAuthStore.getState().user;
+      if (storeUser) {
+        useAuthStore.getState().setUser({
+          ...storeUser,
+          displayName: displayName.trim(),
+        });
+      }
+
       setProfileSuccess(true);
       setTimeout(() => setProfileSuccess(false), 3000);
     } catch (err) {
@@ -113,7 +122,7 @@ export default function SettingsPage() {
 
     try {
       const ext = file.name.split('.').pop() || 'jpg';
-      const storagePath = `users/${auth.currentUser.uid}/profile.${ext}`;
+      const storagePath = `users/${auth.currentUser.uid}/profile/avatar.${ext}`;
       const storageRef = ref(storage, storagePath);
       await uploadBytes(storageRef, file);
       const url = await getDownloadURL(storageRef);
@@ -125,6 +134,11 @@ export default function SettingsPage() {
       });
 
       setPhotoUrl(url);
+
+      const storeUser = useAuthStore.getState().user;
+      if (storeUser) {
+        useAuthStore.getState().setUser({ ...storeUser, photoURL: url });
+      }
     } catch (err) {
       setProfileError(
         err instanceof Error ? err.message : 'Failed to upload photo'

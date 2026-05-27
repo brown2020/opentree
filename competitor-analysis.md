@@ -1,5 +1,9 @@
 # Competitor Analysis: Ancestry.com
 
+> **Note:** Product roadmap and current application state live in [spec.md](./spec.md). This document is retained as archived market research — not a source of truth for implementation priorities.
+
+---
+
 ## 1. Core Value Prop
 
 Ancestry.com solves the problem of **discovering, documenting, and preserving family history**. It combines three things that are individually hard to do: (1) building a family tree with relationships, dates, and places, (2) finding historical records that confirm or extend what you know, and (3) connecting with living relatives who share common ancestors.

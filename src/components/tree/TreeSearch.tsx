@@ -8,12 +8,19 @@ import { timestampToDate } from '@/lib/firebase/firestore';
 interface TreeSearchProps {
   persons: Person[];
   onSelectPerson: (personId: string) => void;
+  getLifespanLabel?: (person: Person) => string;
 }
 
-function getLifeYears(person: Person): string {
+function getLifeYears(
+  person: Person,
+  getLifespanLabel?: (person: Person) => string
+): string {
+  if (getLifespanLabel) {
+    return getLifespanLabel(person);
+  }
   const birth = timestampToDate(person.birthDate);
   const death = timestampToDate(person.deathDate);
-  if (!birth) return '';
+  if (!birth) return person.isLiving ? 'Living' : '';
   const b = format(birth, 'yyyy');
   if (person.isLiving) return `b. ${b}`;
   if (death) return `${b}–${format(death, 'yyyy')}`;
@@ -35,7 +42,7 @@ function highlightMatch(text: string, query: string): React.ReactNode {
   );
 }
 
-export function TreeSearch({ persons, onSelectPerson }: TreeSearchProps) {
+export function TreeSearch({ persons, onSelectPerson, getLifespanLabel }: TreeSearchProps) {
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -154,7 +161,7 @@ export function TreeSearch({ persons, onSelectPerson }: TreeSearchProps) {
           <div ref={listRef} id="search-listbox" role="listbox" className="max-h-60 overflow-y-auto py-1">
             {results.map((person, idx) => {
               const fullName = `${person.firstName} ${person.lastName}`;
-              const years = getLifeYears(person);
+              const years = getLifeYears(person, getLifespanLabel);
               return (
                 <button
                   key={person.id}

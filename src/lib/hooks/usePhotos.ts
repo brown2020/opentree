@@ -15,10 +15,15 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { uploadPhoto, deleteFile } from '@/lib/firebase/storage';
+import { logTreeActivity } from '@/lib/firebase/activity';
 import { useAuth } from './useAuth';
 import type { Photo, PhotoFormData } from '@/lib/types';
 
-export function usePhotos(treeId: string | null, personId: string | null) {
+export function usePhotos(
+  treeId: string | null,
+  personId: string | null,
+  treeOwnerId: string | null
+) {
   const { user } = useAuth();
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,7 +87,7 @@ export function usePhotos(treeId: string | null, personId: string | null) {
     file: File,
     data?: PhotoFormData
   ): Promise<string | null> => {
-    if (!user || !treeId || !personId) return null;
+    if (!user || !treeId || !personId || !treeOwnerId) return null;
 
     try {
       // Generate a temporary ID for storage path
@@ -90,7 +95,7 @@ export function usePhotos(treeId: string | null, personId: string | null) {
 
       // Upload file to storage first (so we don't create orphaned Firestore docs)
       const { url, storagePath } = await uploadPhoto(
-        user.uid,
+        treeOwnerId,
         treeId,
         personId,
         file,
@@ -112,6 +117,15 @@ export function usePhotos(treeId: string | null, personId: string | null) {
       );
 
       await fetchPhotos();
+      if (user) {
+        await logTreeActivity(
+          treeId,
+          { userId: user.uid, userDisplayName: user.displayName },
+          'photo_added',
+          data?.caption ? `Added photo: ${data.caption}` : 'Added a photo',
+          personId
+        );
+      }
       return docRef.id;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to upload photo');
@@ -153,6 +167,15 @@ export function usePhotos(treeId: string | null, personId: string | null) {
       );
 
       await fetchPhotos();
+      if (user) {
+        await logTreeActivity(
+          treeId,
+          { userId: user.uid, userDisplayName: user.displayName },
+          'photo_deleted',
+          photo.caption ? `Removed photo: ${photo.caption}` : 'Removed a photo',
+          personId
+        );
+      }
       return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete photo');

@@ -13,9 +13,12 @@ service cloud.firestore {
       // Owner can read their own doc
       allow get: if isAuthenticated() && request.auth.uid == userId;
 
-      // Email lookup for sharing invites — must be an equality filter on email
+      // Email lookup for sharing invites — equality filter on email required
       allow list: if isAuthenticated()
-        && request.query.limit <= 1;
+        && request.query.limit <= 1
+        && request.query.filters.size() == 1
+        && request.query.filters[0].field.path.last() == 'email'
+        && request.query.filters[0].op == '==';
 
       // Create own user doc on signup
       allow create: if isAuthenticated()
@@ -36,12 +39,12 @@ service cloud.firestore {
     // ── Trees ─────────────────────────────────────────────────────
     match /trees/{treeId} {
 
-      // Read: owner, members, or public tree
-      allow read: if isAuthenticated() && (
-        resource.data.userId == request.auth.uid
-        || isMember(resource)
-        || resource.data.isPublic == true
-      );
+      // Read: public trees for anyone; private trees for owner/members only
+      allow read: if resource.data.isPublic == true
+        || (isAuthenticated() && (
+          resource.data.userId == request.auth.uid
+          || isMember(resource)
+        ));
 
       // Create: authenticated user, must set themselves as owner
       allow create: if isAuthenticated()
@@ -59,6 +62,19 @@ service cloud.firestore {
         && resource.data.userId == request.auth.uid
         && request.resource.data.userId == resource.data.userId;
 
+      // Invitee accepting a pending invite may add themselves to memberIds
+      allow update: if isAuthenticated()
+        && hasPendingInvite(treeId)
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.isPublic == resource.data.isPublic
+        && request.resource.data.name == resource.data.name
+        && request.resource.data.description == resource.data.description
+        && request.resource.data.rootPersonId == resource.data.rootPersonId
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['memberIds', 'updatedAt'])
+        && request.auth.uid in request.resource.data.memberIds
+        && !(request.auth.uid in resource.data.memberIds);
+
       // Editor members can only update safe fields
       allow update: if isAuthenticated()
         && isMember(resource)
@@ -75,29 +91,52 @@ service cloud.firestore {
 
       // ── Members subcollection ─────────────────────────────────
       match /members/{memberId} {
-        allow read: if isAuthenticated() && canAccessTree(treeId);
+        allow read: if canAccessCollaborationData(treeId);
 
         allow create: if isAuthenticated()
-          && isTreeOwner(treeId)
+          && memberId == request.resource.data.userId
           && request.resource.data.keys().hasAll(['userId', 'email', 'role', 'addedBy', 'addedAt'])
           && request.resource.data.role in ['editor', 'viewer']
           && request.resource.data.userId is string
           && request.resource.data.email is string
-          && request.resource.data.addedBy == request.auth.uid;
+          && (
+            (isTreeOwner(treeId) && request.resource.data.addedBy == request.auth.uid)
+            || isAcceptingPendingInvite(treeId, memberId)
+          );
 
         allow update: if isAuthenticated()
           && isTreeOwner(treeId)
           && request.resource.data.userId == resource.data.userId
           && request.resource.data.email == resource.data.email
+          && request.resource.data.role in ['editor', 'viewer']
           && request.resource.data.diff(resource.data).affectedKeys()
               .hasOnly(['role', 'displayName']);
 
         allow delete: if isAuthenticated() && isTreeOwner(treeId);
       }
 
+      // ── Pending invites subcollection ───────────────────────────
+      match /invites/{inviteId} {
+        allow read: if isAuthenticated() && isTreeOwner(treeId);
+
+        allow create: if isAuthenticated()
+          && isTreeOwner(treeId)
+          && inviteId == request.resource.data.email
+          && request.resource.data.keys().hasAll(['email', 'role', 'addedBy', 'addedAt'])
+          && request.resource.data.email is string
+          && request.resource.data.email.size() > 0
+          && request.resource.data.role in ['editor', 'viewer']
+          && request.resource.data.addedBy == request.auth.uid;
+
+        allow delete: if isAuthenticated() && (
+          isTreeOwner(treeId)
+          || (inviteId == canonicalUserEmail() && resource.data.email == canonicalUserEmail())
+        );
+      }
+
       // ── Activity subcollection ────────────────────────────────
       match /activity/{activityId} {
-        allow read: if isAuthenticated() && canAccessTree(treeId);
+        allow read: if canAccessCollaborationData(treeId);
 
         allow create: if isAuthenticated()
           && canEditTree(treeId)
@@ -114,7 +153,7 @@ service cloud.firestore {
 
       // ── Relationships subcollection ───────────────────────────
       match /relationships/{relationshipId} {
-        allow read: if isAuthenticated() && canAccessTree(treeId);
+        allow read: if canAccessTree(treeId);
 
         allow create: if isAuthenticated()
           && canEditTree(treeId)
@@ -135,7 +174,7 @@ service cloud.firestore {
 
       // ── Persons subcollection ─────────────────────────────────
       match /persons/{personId} {
-        allow read: if isAuthenticated() && canAccessTree(treeId);
+        allow read: if canAccessTree(treeId);
 
         allow create: if isAuthenticated()
           && canEditTree(treeId)
@@ -149,12 +188,27 @@ service cloud.firestore {
           && request.resource.data.gender in ['male', 'female', 'other', 'unknown']
           && request.resource.data.isLiving is bool;
 
-        allow update: if isAuthenticated() && canEditTree(treeId);
+        allow update: if isAuthenticated()
+          && canEditTree(treeId)
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly([
+                'firstName', 'lastName', 'middleName', 'maidenName', 'gender',
+                'birthDate', 'birthPlace', 'deathDate', 'deathPlace', 'isLiving',
+                'profilePhotoUrl', 'bio', 'updatedAt'
+              ])
+          && request.resource.data.firstName is string
+          && request.resource.data.firstName.size() >= 1
+          && request.resource.data.firstName.size() <= 100
+          && request.resource.data.lastName is string
+          && request.resource.data.lastName.size() >= 1
+          && request.resource.data.lastName.size() <= 100
+          && request.resource.data.gender in ['male', 'female', 'other', 'unknown']
+          && request.resource.data.isLiving is bool;
         allow delete: if isAuthenticated() && canEditTree(treeId);
 
         // ── Photos ────────────────────────────────────────────
         match /photos/{photoId} {
-          allow read: if isAuthenticated() && canAccessTree(treeId);
+          allow read: if canAccessTree(treeId);
 
           allow create: if isAuthenticated()
             && canEditTree(treeId)
@@ -174,7 +228,7 @@ service cloud.firestore {
 
         // ── Documents ─────────────────────────────────────────
         match /documents/{documentId} {
-          allow read: if isAuthenticated() && canAccessTree(treeId);
+          allow read: if canAccessTree(treeId);
 
           allow create: if isAuthenticated()
             && canEditTree(treeId)
@@ -195,7 +249,7 @@ service cloud.firestore {
 
         // ── Events (timeline) ─────────────────────────────────
         match /events/{eventId} {
-          allow read: if isAuthenticated() && canAccessTree(treeId);
+          allow read: if canAccessTree(treeId);
 
           allow create: if isAuthenticated()
             && canEditTree(treeId)
@@ -212,6 +266,12 @@ service cloud.firestore {
           allow delete: if isAuthenticated() && canEditTree(treeId);
         }
       }
+    }
+
+    // Collection group: resolve pending invites for the authenticated user
+    match /{path=**}/invites/{inviteId} {
+      allow read, delete: if isAuthenticated()
+        && resource.data.email == canonicalUserEmail();
     }
 
     // ── Helper functions ──────────────────────────────────────────
@@ -231,9 +291,22 @@ service cloud.firestore {
 
     function canAccessTree(treeId) {
       let tree = get(/databases/$(database)/documents/trees/$(treeId)).data;
-      return tree.userId == request.auth.uid
-        || (tree.memberIds is list && request.auth.uid in tree.memberIds)
-        || tree.isPublic == true;
+      return tree.isPublic == true
+        || (isAuthenticated() && (
+          tree.userId == request.auth.uid
+          || (tree.memberIds is list && request.auth.uid in tree.memberIds)
+        ));
+    }
+
+    function isTreeMember(treeId) {
+      let tree = get(/databases/$(database)/documents/trees/$(treeId)).data;
+      return isAuthenticated()
+        && tree.memberIds is list
+        && request.auth.uid in tree.memberIds;
+    }
+
+    function canAccessCollaborationData(treeId) {
+      return isTreeOwner(treeId) || isTreeMember(treeId);
     }
 
     function canEditTree(treeId) {
@@ -246,6 +319,31 @@ service cloud.firestore {
 
     function hasEditorRole(treeId) {
       return get(/databases/$(database)/documents/trees/$(treeId)/members/$(request.auth.uid)).data.role == 'editor';
+    }
+
+    function canonicalUserEmail() {
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return userDoc != null && userDoc.data.email is string
+        ? userDoc.data.email
+        : '';
+    }
+
+    function hasPendingInvite(treeId) {
+      let email = canonicalUserEmail();
+      return email.size() > 0
+        && exists(/databases/$(database)/documents/trees/$(treeId)/invites/$(email));
+    }
+
+    function isAcceptingPendingInvite(treeId, memberId) {
+      let email = canonicalUserEmail();
+      return memberId == request.auth.uid
+        && hasPendingInvite(treeId)
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.email == email
+        && request.resource.data.role
+            == get(/databases/$(database)/documents/trees/$(treeId)/invites/$(email)).data.role
+        && request.resource.data.addedBy
+            == get(/databases/$(database)/documents/trees/$(treeId)/invites/$(email)).data.addedBy;
     }
   }
 }

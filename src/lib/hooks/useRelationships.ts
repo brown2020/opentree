@@ -6,9 +6,12 @@ import {
   addRelationship,
   removeRelationship,
 } from '@/lib/firebase/relationships';
+import { logTreeActivity } from '@/lib/firebase/activity';
+import { useAuth } from './useAuth';
 import type { Relationship, RelationshipType } from '@/lib/types';
 
 export function useRelationships(treeId: string | null) {
+  const { user } = useAuth();
   const [relationships, setRelationships] = useState<Relationship[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -72,6 +75,15 @@ export function useRelationships(treeId: string | null) {
         divorceDate
       );
       await fetchRelationships();
+      if (user) {
+        const label = type === 'spouse' ? 'spouse' : 'parent-child';
+        await logTreeActivity(
+          treeId,
+          { userId: user.uid, userDisplayName: user.displayName },
+          'relationship_added',
+          `Added ${label} relationship`
+        );
+      }
       return id;
     } catch (err) {
       setError(
@@ -85,8 +97,19 @@ export function useRelationships(treeId: string | null) {
     if (!treeId) return false;
 
     try {
+      const existing = relationships.find((rel) => rel.id === relationshipId);
       await removeRelationship(treeId, relationshipId);
       await fetchRelationships();
+      if (user) {
+        const label =
+          existing?.type === 'spouse' ? 'spouse' : 'parent-child';
+        await logTreeActivity(
+          treeId,
+          { userId: user.uid, userDisplayName: user.displayName },
+          'relationship_removed',
+          `Removed ${label} relationship`
+        );
+      }
       return true;
     } catch (err) {
       setError(

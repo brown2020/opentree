@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTrees } from '@/lib/hooks/useTree';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { getSharedTrees, getTreePersonCount } from '@/lib/firebase/firestore';
 import { getTreeActivity } from '@/lib/firebase/activity';
+import { useActivityStore } from '@/lib/stores/activityStore';
+import { ACTIVITY_ICONS } from '@/lib/utils/activityIcons';
 import { Button } from '@/components/ui/Button';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { ConfirmModal } from '@/components/ui/Modal';
@@ -46,31 +48,43 @@ export default function DashboardPage() {
   const [treeStats, setTreeStats] = useState<Map<string, TreeStats>>(new Map());
   const [consolidatedActivity, setConsolidatedActivity] = useState<ConsolidatedActivity[]>([]);
   const [activityLoading, setActivityLoading] = useState(true);
-
-  const fetchSharedTrees = useCallback(async () => {
-    if (!user) {
-      setSharedTrees([]);
-      setSharedLoading(false);
-      return;
-    }
-
-    try {
-      const data = await getSharedTrees(user.uid);
-      setSharedTrees(data);
-    } catch {
-      // Non-critical
-    } finally {
-      setSharedLoading(false);
-    }
-  }, [user]);
+  const activityBump = useActivityStore((state) => state.bump);
 
   useEffect(() => {
-    fetchSharedTrees();
-  }, [fetchSharedTrees]);
+    let cancelled = false;
+
+    const run = async () => {
+      if (!user) {
+        if (!cancelled) {
+          setSharedTrees([]);
+          setSharedLoading(false);
+        }
+        return;
+      }
+
+      try {
+        const data = await getSharedTrees(user.uid);
+        if (!cancelled) setSharedTrees(data);
+      } catch {
+        // Non-critical
+      } finally {
+        if (!cancelled) setSharedLoading(false);
+      }
+    };
+
+    setSharedLoading(true);
+    run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   // Fetch person counts for each tree
   useEffect(() => {
     if (trees.length === 0) return;
+
+    let cancelled = false;
 
     const fetchStats = async () => {
       const stats = new Map<string, TreeStats>();
@@ -78,16 +92,20 @@ export default function DashboardPage() {
         trees.map(async (tree) => {
           try {
             const count = await getTreePersonCount(tree.id);
-            stats.set(tree.id, { personCount: count });
+            if (!cancelled) stats.set(tree.id, { personCount: count });
           } catch {
-            stats.set(tree.id, { personCount: 0 });
+            if (!cancelled) stats.set(tree.id, { personCount: 0 });
           }
         })
       );
-      setTreeStats(stats);
+      if (!cancelled) setTreeStats(stats);
     };
 
     fetchStats();
+
+    return () => {
+      cancelled = true;
+    };
   }, [trees]);
 
   // Fetch consolidated activity across all trees
@@ -96,6 +114,8 @@ export default function DashboardPage() {
       setActivityLoading(false);
       return;
     }
+
+    let cancelled = false;
 
     const fetchActivity = async () => {
       setActivityLoading(true);
@@ -114,6 +134,8 @@ export default function DashboardPage() {
           })
         );
 
+        if (cancelled) return;
+
         allActivities.sort((a, b) => {
           const aTime = timestampToDate(a.timestamp)?.getTime() || 0;
           const bTime = timestampToDate(b.timestamp)?.getTime() || 0;
@@ -124,12 +146,16 @@ export default function DashboardPage() {
       } catch {
         // Non-critical
       } finally {
-        setActivityLoading(false);
+        if (!cancelled) setActivityLoading(false);
       }
     };
 
     fetchActivity();
-  }, [trees]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [trees, activityBump]);
 
   const handleCreateTree = async (data: TreeSchemaFormData) => {
     setIsCreating(true);
@@ -262,11 +288,14 @@ export default function DashboardPage() {
                   <ul className="divide-y divide-gray-100 dark:divide-gray-700">
                     {consolidatedActivity.map((a) => {
                       const ts = timestampToDate(a.timestamp);
+                      const config = ACTIVITY_ICONS[a.type] ?? ACTIVITY_ICONS.tree_updated;
                       return (
-                        <li key={a.id} className="flex items-start gap-3 px-5 py-3">
-                          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
-                            <svg className="h-4 w-4 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        <li key={`${a.treeId}-${a.id}`} className="flex items-start gap-3 px-5 py-3">
+                          <div
+                            className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${config.color}`}
+                          >
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={config.icon} />
                             </svg>
                           </div>
                           <div className="min-w-0 flex-1">
@@ -274,9 +303,15 @@ export default function DashboardPage() {
                               {a.description}
                             </p>
                             <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                              {a.userDisplayName && (
+                                <>
+                                  <span className="font-medium">{a.userDisplayName}</span>
+                                  {' · '}
+                                </>
+                              )}
                               <span className="font-medium">{a.treeName}</span>
                               {ts && (
-                                <> &middot; {formatDistanceToNow(ts, { addSuffix: true })}</>
+                                <> · {formatDistanceToNow(ts, { addSuffix: true })}</>
                               )}
                             </p>
                           </div>

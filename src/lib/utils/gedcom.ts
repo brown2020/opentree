@@ -1,6 +1,13 @@
-import type { Person, Relationship } from '@/lib/types';
+import type { Person, Relationship, Tree, TreeMember } from '@/lib/types';
 import { timestampToDate } from '@/lib/firebase/firestore';
 import { buildAdjacencyMap } from '@/lib/firebase/relationships';
+import { canViewFullPerson } from '@/lib/utils/personPrivacy';
+
+export interface GedcomExportOptions {
+  tree?: Pick<Tree, 'isPublic' | 'userId'> | null;
+  userId?: string | null;
+  members?: Pick<TreeMember, 'userId' | 'role'>[];
+}
 
 /**
  * Export persons and relationships to GEDCOM 5.5.1 format.
@@ -8,7 +15,8 @@ import { buildAdjacencyMap } from '@/lib/firebase/relationships';
 export function exportToGedcom(
   treeName: string,
   persons: Person[],
-  relationships: Relationship[]
+  relationships: Relationship[],
+  options: GedcomExportOptions = {}
 ): string {
   const lines: string[] = [];
   const personIds = persons.map((p) => p.id);
@@ -124,13 +132,22 @@ export function exportToGedcom(
   // Individual records
   for (const person of persons) {
     const gedId = personIdMap.get(person.id)!;
+    const redactLiving =
+      person.isLiving &&
+      !canViewFullPerson(
+        options.tree,
+        person,
+        options.userId,
+        options.members ?? []
+      );
+
     lines.push(`0 @${gedId}@ INDI`);
     lines.push(
       `1 NAME ${person.firstName} /${person.lastName}/`
     );
     if (person.firstName) lines.push(`2 GIVN ${person.firstName}`);
     if (person.lastName) lines.push(`2 SURN ${person.lastName}`);
-    if (person.maidenName) lines.push(`2 _MARNM ${person.maidenName}`);
+    if (person.maidenName && !redactLiving) lines.push(`2 _MARNM ${person.maidenName}`);
 
     // Sex
     const sexMap: Record<string, string> = {
@@ -140,6 +157,19 @@ export function exportToGedcom(
       unknown: 'U',
     };
     lines.push(`1 SEX ${sexMap[person.gender] || 'U'}`);
+
+    if (redactLiving) {
+      // Living person with limited visibility — name only
+      const famChild = personFamiliesAsChild.get(person.id) || [];
+      for (const famId of famChild) {
+        lines.push(`1 FAMC @${famId}@`);
+      }
+      const famSpouse = personFamiliesAsSpouse.get(person.id) || [];
+      for (const famId of famSpouse) {
+        lines.push(`1 FAMS @${famId}@`);
+      }
+      continue;
+    }
 
     // Birth
     const birthDate = timestampToDate(person.birthDate);
