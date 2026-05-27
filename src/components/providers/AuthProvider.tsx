@@ -35,9 +35,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
             firebaseUser.uid,
             firebaseUser.email,
             firebaseUser.displayName
-          ).finally(() => {
-            resolvingInvitesRef.current = false;
-          });
+          )
+            .catch(() => {
+              // Non-blocking — invite resolution must not break auth bootstrap
+            })
+            .finally(() => {
+              resolvingInvitesRef.current = false;
+            });
         }
       } else {
         setUser(null);

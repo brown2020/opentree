@@ -9,6 +9,7 @@ import {
   updateMemberRole,
   revokeTreeInvite,
 } from '@/lib/firebase/members';
+import { getTree } from '@/lib/firebase/firestore';
 import { logTreeActivity } from '@/lib/firebase/activity';
 import { useAuth } from './useAuth';
 import type { TreeMember, TreeInvite, MemberRole } from '@/lib/types';
@@ -33,9 +34,11 @@ export function useMembers(treeId: string | null) {
     setError(null);
 
     try {
+      const tree = await getTree(treeId);
+      const canReadInvites = !!user && tree?.userId === user.uid;
       const [memberData, inviteData] = await Promise.all([
         getTreeMembers(treeId),
-        getTreeInvites(treeId),
+        canReadInvites ? getTreeInvites(treeId) : Promise.resolve([]),
       ]);
       setMembers(memberData);
       setInvites(inviteData);
@@ -46,7 +49,7 @@ export function useMembers(treeId: string | null) {
     } finally {
       setLoading(false);
     }
-  }, [treeId]);
+  }, [treeId, user]);
 
   useEffect(() => {
     let cancelled = false;
@@ -60,9 +63,11 @@ export function useMembers(treeId: string | null) {
       setLoading(true);
       setError(null);
       try {
+        const tree = await getTree(treeId);
+        const canReadInvites = !!user && tree?.userId === user.uid;
         const [memberData, inviteData] = await Promise.all([
           getTreeMembers(treeId),
-          getTreeInvites(treeId),
+          canReadInvites ? getTreeInvites(treeId) : Promise.resolve([]),
         ]);
         if (!cancelled) {
           setMembers(memberData);
@@ -79,7 +84,7 @@ export function useMembers(treeId: string | null) {
     return () => {
       cancelled = true;
     };
-  }, [treeId]);
+  }, [treeId, user]);
 
   const add = async (
     email: string,
