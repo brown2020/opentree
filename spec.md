@@ -81,7 +81,7 @@ OpenTree is a fully client-rendered Next.js app. Users authenticate via Firebase
 | Full ZIP export | ✅ | GEDCOM + all photos/documents per person |
 | Member sharing | ✅ | Invite by email; pending invites for users without accounts |
 | Public/private toggle | ✅ | Toggle + guest route at `/tree/[treeId]/public`; living-person redaction for guests |
-| Activity feed | ⚠️ Partial | Logged on tree page for person add/delete/relationship add; **not all CRUD paths** |
+| Activity feed | ✅ | All CRUD paths log via hooks; per-tree and dashboard feeds |
 | User settings | ✅ | Display name, photo, password, theme |
 | Dark mode | ✅ | system/light/dark via localStorage |
 | Error boundaries | ✅ | Auth and dashboard route groups |
@@ -158,7 +158,7 @@ Storage files live under `users/{ownerId}/trees/{treeId}/persons/...` regardless
 | No pending invite system | ~~Cannot invite unsigned users~~ **Fixed in Milestone 3** — pending invites resolve on signup + verification |
 | No GEDCOM import preview | ~~Import merges immediately~~ **Fixed in Milestone 2** — preview modal before commit |
 | No guest/public viewing route | ~~Requires login~~ **Fixed in Milestone 4** — `/tree/[treeId]/public` read-only route |
-| Activity logging incomplete | Edits from person pages, photo/doc/event changes may not appear in feed |
+| Activity logging incomplete | ~~Not all CRUD paths~~ **Fixed in Milestone 5** — centralized hook-based logging |
 | No duplicate-person detection | Large imports or manual entry can create duplicates |
 | No person merge | Fixing duplicates requires manual cleanup |
 | No source/citation model | Records cannot be attached as structured sources |
@@ -237,7 +237,7 @@ Ordered by product impact and dependency. Each item is sized for one focused com
 
 ---
 
-### Milestone 5: Complete activity logging
+### Milestone 5: Complete activity logging ✅ DONE
 
 **User value:** Collaborators see a trustworthy history of all tree changes.
 
@@ -246,7 +246,7 @@ Ordered by product impact and dependency. Each item is sized for one focused com
 - Dashboard consolidated feed includes all entry types
 - Logged user display name and timestamp on each entry
 
-**Implementation intent:** Centralize `logActivity()` calls in hooks (`usePerson`, `usePhotos`, `useDocuments`, `useTimeline`, `useRelationships`, `useMembers`) rather than only tree page handlers.
+**Implementation note (May 2026):** Centralized `logTreeActivity()` in data hooks (`usePerson`, `usePhotos`, `useDocuments`, `useTimeline`, `useRelationships`, `useMembers`). Added delete/import activity types, shared `activityIcons`, and `activityStore` bump to refresh feeds after mutations. GEDCOM import logged from tree page; person edit uses `usePersons.update()`.
 
 ---
 
