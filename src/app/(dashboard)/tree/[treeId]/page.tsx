@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { useTreeDetails } from '@/lib/hooks/useTree';
 import { usePersons } from '@/lib/hooks/usePerson';
@@ -24,6 +24,7 @@ import { AddRelationshipModal } from '@/components/tree/AddRelationshipModal';
 import { TreeSettingsModal } from '@/components/tree/TreeSettingsModal';
 import { RelationshipCalculatorModal } from '@/components/tree/RelationshipCalculatorModal';
 import { ActivityFeed } from '@/components/tree/ActivityFeed';
+import { useTreePrivacy } from '@/lib/hooks/useTreePrivacy';
 import type { Person, RelationshipType } from '@/lib/types';
 import type { PersonSchemaFormData } from '@/lib/utils/validation';
 
@@ -67,6 +68,11 @@ export default function TreePage() {
 
   const isOwner = tree?.userId === user?.uid;
   const effectiveRoot = rootPersonId || tree?.rootPersonId || null;
+  const { getDisplayPersons, getLifespanLabel } = useTreePrivacy(tree, members);
+  const displayPersons = useMemo(
+    () => getDisplayPersons(persons),
+    [persons, getDisplayPersons]
+  );
 
   const handleAddPerson = async (data: PersonSchemaFormData) => {
     setIsAdding(true);
@@ -283,8 +289,9 @@ export default function TreePage() {
           {/* Search */}
           <div className="w-48 lg:w-64">
             <TreeSearch
-              persons={persons}
+              persons={displayPersons}
               onSelectPerson={handleSearchSelect}
+              getLifespanLabel={getLifespanLabel}
             />
           </div>
 
@@ -435,25 +442,27 @@ export default function TreePage() {
           </div>
         ) : viewMode === 'tree' ? (
           <FamilyTree
-            persons={persons}
+            persons={displayPersons}
             relationships={relationships}
             selectedPersonId={selectedPersonId}
             onSelectPerson={setSelectedPersonId}
             treeId={treeId}
             rootPersonId={effectiveRoot}
             onChangeRoot={handleChangeRoot}
+            getLifespanLabel={getLifespanLabel}
           />
         ) : (
           <div className="h-full overflow-y-auto p-4">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {persons.map((person) => (
+              {displayPersons.map((person) => (
                 <PersonCard
                   key={person.id}
                   person={person}
                   treeId={treeId}
                   isSelected={selectedPersonId === person.id}
                   onClick={() => setSelectedPersonId(person.id)}
-                  onAddRelationship={() => handleOpenRelModal(person)}
+                  onAddRelationship={() => handleOpenRelModal(persons.find((p) => p.id === person.id) ?? person)}
+                  lifespan={getLifespanLabel(person)}
                 />
               ))}
             </div>
@@ -534,7 +543,7 @@ export default function TreePage() {
       <RelationshipCalculatorModal
         isOpen={calcOpen}
         onClose={() => setCalcOpen(false)}
-        persons={persons}
+        persons={displayPersons}
         relationships={relationships}
       />
     </div>

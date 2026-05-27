@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, useMemo, useCallback } from 'react';
+import { Suspense, useState, useMemo, useCallback, useEffect } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -10,6 +10,8 @@ import { useRelationships } from '@/lib/hooks/useRelationships';
 import { usePersons } from '@/lib/hooks/usePerson';
 import { useTreeStore } from '@/lib/stores/treeStore';
 import { useTreeDetails } from '@/lib/hooks/useTree';
+import { useMembers } from '@/lib/hooks/useMembers';
+import { useTreePrivacy } from '@/lib/hooks/useTreePrivacy';
 import { Button } from '@/components/ui/Button';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { AddRelationshipModal } from '@/components/tree/AddRelationshipModal';
@@ -42,6 +44,8 @@ function PersonDetailContent() {
   const { persons } = useTreeStore();
   const { relationships, add: addRel, refetch: refetchRels } = useRelationships(treeId);
   const { tree } = useTreeDetails(treeId);
+  const { members } = useMembers(treeId);
+  const { canViewFullPerson, getDisplayPerson } = useTreePrivacy(tree, members);
   const [relModalOpen, setRelModalOpen] = useState(false);
   const [isAddingRel, setIsAddingRel] = useState(false);
   const [quickAddType, setQuickAddType] = useState<'parent' | 'child' | 'spouse' | null>(null);
@@ -56,6 +60,16 @@ function PersonDetailContent() {
     },
     [treeId, personId, router]
   );
+
+  const showFullDetailsForEffect = person
+    ? canViewFullPerson(person)
+    : true;
+
+  useEffect(() => {
+    if (person && !showFullDetailsForEffect && activeTab !== 'overview') {
+      setActiveTab('overview');
+    }
+  }, [person, showFullDetailsForEffect, activeTab, setActiveTab]);
 
   const related = useMemo(() => {
     const empty = {
@@ -200,12 +214,15 @@ function PersonDetailContent() {
     );
   }
 
-  const birthDate = timestampToDate(person.birthDate);
-  const deathDate = timestampToDate(person.deathDate);
+  const showFullDetails = canViewFullPerson(person);
+  const displayPerson = getDisplayPerson(person);
+
+  const birthDate = timestampToDate(displayPerson.birthDate);
+  const deathDate = timestampToDate(displayPerson.deathDate);
 
   const computedAge = (() => {
     if (!birthDate) return null;
-    if (person.isLiving) return differenceInYears(new Date(), birthDate);
+    if (displayPerson.isLiving) return differenceInYears(new Date(), birthDate);
     if (deathDate) return differenceInYears(deathDate, birthDate);
     return null;
   })();
@@ -231,9 +248,13 @@ function PersonDetailContent() {
 
   const tabs: { key: PersonTab; label: string; icon: string }[] = [
     { key: 'overview', label: 'Overview', icon: 'M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z' },
-    { key: 'photos', label: 'Photos', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' },
-    { key: 'documents', label: 'Documents', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
-    { key: 'timeline', label: 'Timeline', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
+    ...(showFullDetails
+      ? [
+          { key: 'photos' as const, label: 'Photos', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' },
+          { key: 'documents' as const, label: 'Documents', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
+          { key: 'timeline' as const, label: 'Timeline', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
+        ]
+      : []),
   ];
 
   return (
@@ -259,17 +280,17 @@ function PersonDetailContent() {
 
       {/* Header */}
       <div className="mb-6 flex flex-col items-start gap-6 sm:flex-row sm:items-center">
-        {person.profilePhotoUrl ? (
+        {displayPerson.profilePhotoUrl ? (
           <Image
-            src={person.profilePhotoUrl}
-            alt={`${person.firstName} ${person.lastName}`}
+            src={displayPerson.profilePhotoUrl}
+            alt={`${displayPerson.firstName} ${displayPerson.lastName}`}
             width={96}
             height={96}
             className="h-24 w-24 rounded-full object-cover ring-4 ring-white shadow-lg dark:ring-gray-800"
           />
         ) : (
           <div
-            className={`flex h-24 w-24 items-center justify-center rounded-full text-2xl font-semibold ring-4 ring-white shadow-lg dark:ring-gray-800 ${genderColor[person.gender]}`}
+            className={`flex h-24 w-24 items-center justify-center rounded-full text-2xl font-semibold ring-4 ring-white shadow-lg dark:ring-gray-800 ${genderColor[displayPerson.gender]}`}
           >
             {initials}
           </div>
@@ -278,12 +299,12 @@ function PersonDetailContent() {
         <div className="flex-1">
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-              {person.firstName} {person.middleName} {person.lastName}
-              {person.maidenName && (
-                <span className="text-gray-500"> (nee {person.maidenName})</span>
+              {displayPerson.firstName} {displayPerson.middleName} {displayPerson.lastName}
+              {displayPerson.maidenName && (
+                <span className="text-gray-500"> (nee {displayPerson.maidenName})</span>
               )}
             </h1>
-            {person.isLiving ? (
+            {displayPerson.isLiving ? (
               <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
                 Living
               </span>
@@ -308,7 +329,7 @@ function PersonDetailContent() {
             )}
             {computedAge !== null && (
               <span className="text-sm">
-                {person.isLiving ? `Age ${computedAge}` : `Lived to ${computedAge}`}
+                {displayPerson.isLiving ? `Age ${computedAge}` : `Lived to ${computedAge}`}
               </span>
             )}
           </div>
@@ -357,15 +378,24 @@ function PersonDetailContent() {
       {/* Tab content */}
       {activeTab === 'overview' && (
         <div className="grid gap-6 lg:grid-cols-3">
+          {!showFullDetails && displayPerson.isLiving && (
+            <div className="lg:col-span-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
+              This living person&apos;s details are limited on public trees. Only the tree owner and editors can view full information.
+            </div>
+          )}
           {/* Biography */}
           <div className="lg:col-span-2">
             <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
               <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
                 Biography
               </h2>
-              {person.bio ? (
+              {!showFullDetails && displayPerson.isLiving ? (
+                <p className="text-gray-500 dark:text-gray-400">
+                  Biography is not available for living persons on public trees.
+                </p>
+              ) : displayPerson.bio ? (
                 <p className="whitespace-pre-wrap text-gray-600 dark:text-gray-300">
-                  {person.bio}
+                  {displayPerson.bio}
                 </p>
               ) : (
                 <p className="italic text-gray-400 dark:text-gray-500">
@@ -385,7 +415,7 @@ function PersonDetailContent() {
                 <div>
                   <dt className="text-gray-500 dark:text-gray-400">Gender</dt>
                   <dd className="font-medium capitalize text-gray-900 dark:text-gray-100">
-                    {person.gender}
+                    {displayPerson.gender}
                   </dd>
                 </div>
                 {birthDate && (
@@ -395,61 +425,63 @@ function PersonDetailContent() {
                       {format(birthDate, 'MMMM d, yyyy')}
                       {computedAge !== null && (
                         <span className="ml-1 text-xs text-gray-500">
-                          ({person.isLiving ? `age ${computedAge}` : `age ${computedAge} at death`})
+                          ({displayPerson.isLiving ? `age ${computedAge}` : `age ${computedAge} at death`})
                         </span>
                       )}
                     </dd>
-                    {person.birthPlace && (
+                    {displayPerson.birthPlace && (
                       <dd className="mt-0.5 flex items-center gap-1 text-xs text-gray-500">
                         <svg className="h-3 w-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
-                        {person.birthPlace}
+                        {displayPerson.birthPlace}
                       </dd>
                     )}
                   </div>
                 )}
-                {!person.isLiving && deathDate && (
+                {!displayPerson.isLiving && deathDate && (
                   <div>
                     <dt className="text-gray-500 dark:text-gray-400">Death</dt>
                     <dd className="font-medium text-gray-900 dark:text-gray-100">
                       {format(deathDate, 'MMMM d, yyyy')}
                     </dd>
-                    {person.deathPlace && (
+                    {displayPerson.deathPlace && (
                       <dd className="mt-0.5 flex items-center gap-1 text-xs text-gray-500">
                         <svg className="h-3 w-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
-                        {person.deathPlace}
+                        {displayPerson.deathPlace}
                       </dd>
                     )}
                   </div>
                 )}
-                {related.spouses.length > 0 && (
+                {showFullDetails && related.spouses.length > 0 && (
                   <div>
                     <dt className="text-gray-500 dark:text-gray-400">
                       {related.spouses.length === 1 ? 'Marriage' : 'Marriages'}
                     </dt>
-                    {related.spouses.map((sp) => (
+                    {related.spouses.map((sp) => {
+                      const displaySpouse = getDisplayPerson(sp);
+                      return (
                       <dd key={sp.id} className="mt-1 font-medium text-gray-900 dark:text-gray-100">
                         <Link href={`/person/${sp.id}?tree=${treeId}`} className="hover:text-emerald-600 dark:hover:text-emerald-400">
-                          {sp.firstName} {sp.lastName}
+                          {displaySpouse.firstName} {displaySpouse.lastName}
                         </Link>
-                        {marriageDates.get(sp.id) && (
+                        {marriageDates.get(sp.id) && canViewFullPerson(sp) && (
                           <span className="ml-1 text-xs text-gray-500">
                             ({marriageDates.get(sp.id)})
                           </span>
                         )}
                       </dd>
-                    ))}
+                    );})}
                   </div>
                 )}
                 <div>
                   <dt className="text-gray-500 dark:text-gray-400">Status</dt>
                   <dd className="font-medium text-gray-900 dark:text-gray-100">
-                    {person.isLiving ? 'Living' : 'Deceased'}
+                    {displayPerson.isLiving ? 'Living' : 'Deceased'}
                   </dd>
                 </div>
               </dl>
@@ -486,7 +518,7 @@ function PersonDetailContent() {
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2">
                   {related.parents.length > 0 && (
-                    <RelationSection title="Parents" persons={related.parents} treeId={treeId} onQuickAdd={() => setQuickAddType('parent')} />
+                    <RelationSection title="Parents" persons={related.parents} treeId={treeId} onQuickAdd={() => setQuickAddType('parent')} getDisplayPerson={getDisplayPerson} />
                   )}
                   {related.parents.length === 0 && (
                     <div>
@@ -498,19 +530,19 @@ function PersonDetailContent() {
                     </div>
                   )}
                   {related.spouses.length > 0 && (
-                    <RelationSection title="Spouse(s)" persons={related.spouses} treeId={treeId} onQuickAdd={() => setQuickAddType('spouse')} />
+                    <RelationSection title="Spouse(s)" persons={related.spouses} treeId={treeId} onQuickAdd={() => setQuickAddType('spouse')} getDisplayPerson={getDisplayPerson} />
                   )}
                   {related.stepParents.length > 0 && (
-                    <RelationSection title="Step-Parents" persons={related.stepParents} treeId={treeId} />
+                    <RelationSection title="Step-Parents" persons={related.stepParents} treeId={treeId} getDisplayPerson={getDisplayPerson} />
                   )}
                   {related.siblings.length > 0 && (
-                    <RelationSection title="Siblings" persons={related.siblings} treeId={treeId} />
+                    <RelationSection title="Siblings" persons={related.siblings} treeId={treeId} getDisplayPerson={getDisplayPerson} />
                   )}
                   {related.stepSiblings.length > 0 && (
-                    <RelationSection title="Step-Siblings" persons={related.stepSiblings} treeId={treeId} />
+                    <RelationSection title="Step-Siblings" persons={related.stepSiblings} treeId={treeId} getDisplayPerson={getDisplayPerson} />
                   )}
                   {related.children.length > 0 && (
-                    <RelationSection title="Children" persons={related.children} treeId={treeId} onQuickAdd={() => setQuickAddType('child')} />
+                    <RelationSection title="Children" persons={related.children} treeId={treeId} onQuickAdd={() => setQuickAddType('child')} getDisplayPerson={getDisplayPerson} />
                   )}
                   {related.children.length === 0 && (
                     <div>
@@ -522,7 +554,7 @@ function PersonDetailContent() {
                     </div>
                   )}
                   {related.stepChildren.length > 0 && (
-                    <RelationSection title="Step-Children" persons={related.stepChildren} treeId={treeId} />
+                    <RelationSection title="Step-Children" persons={related.stepChildren} treeId={treeId} getDisplayPerson={getDisplayPerson} />
                   )}
                 </div>
               )}
@@ -531,15 +563,15 @@ function PersonDetailContent() {
         </div>
       )}
 
-      {activeTab === 'photos' && tree && (
+      {showFullDetails && activeTab === 'photos' && tree && (
         <PhotoGallery treeId={treeId} personId={personId} treeOwnerId={tree.userId} />
       )}
 
-      {activeTab === 'documents' && tree && (
+      {showFullDetails && activeTab === 'documents' && tree && (
         <DocumentList treeId={treeId} personId={personId} treeOwnerId={tree.userId} />
       )}
 
-      {activeTab === 'timeline' && (
+      {showFullDetails && activeTab === 'timeline' && (
         <TimelineView treeId={treeId} personId={personId} />
       )}
 
@@ -572,11 +604,13 @@ function RelationSection({
   persons,
   treeId,
   onQuickAdd,
+  getDisplayPerson,
 }: {
   title: string;
   persons: Person[];
   treeId: string;
   onQuickAdd?: () => void;
+  getDisplayPerson: (person: Person) => Person;
 }) {
   const genderColors: Record<string, string> = {
     male: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
@@ -598,16 +632,18 @@ function RelationSection({
         )}
       </div>
       <div className="flex flex-wrap gap-2">
-        {persons.map((p) => (
+        {persons.map((p) => {
+          const display = getDisplayPerson(p);
+          return (
           <Link
             key={p.id}
             href={`/person/${p.id}?tree=${treeId}`}
             className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm transition-colors hover:border-emerald-300 hover:bg-emerald-50 dark:border-gray-700 dark:hover:border-emerald-700 dark:hover:bg-emerald-900/10"
           >
-            {p.profilePhotoUrl ? (
+            {display.profilePhotoUrl ? (
               <Image
-                src={p.profilePhotoUrl}
-                alt={`${p.firstName} ${p.lastName}`}
+                src={display.profilePhotoUrl}
+                alt={`${display.firstName} ${display.lastName}`}
                 width={24}
                 height={24}
                 className="h-6 w-6 rounded-full object-cover"
@@ -616,14 +652,14 @@ function RelationSection({
               <span
                 className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${genderColors[p.gender] || genderColors.unknown}`}
               >
-                {p.firstName?.[0]}
+                {display.firstName?.[0]}
               </span>
             )}
             <span className="font-medium text-gray-900 dark:text-gray-100">
-              {p.firstName} {p.lastName}
+              {display.firstName} {display.lastName}
             </span>
           </Link>
-        ))}
+        );})}
       </div>
     </div>
   );

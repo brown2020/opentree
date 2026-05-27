@@ -12,6 +12,7 @@ interface PersonCardProps {
   isSelected?: boolean;
   onClick?: () => void;
   onAddRelationship?: () => void;
+  lifespan?: string | null;
 }
 
 export function PersonCard({
@@ -20,17 +21,20 @@ export function PersonCard({
   isSelected,
   onClick,
   onAddRelationship,
+  lifespan,
 }: PersonCardProps) {
   const birthDate = timestampToDate(person.birthDate);
   const deathDate = timestampToDate(person.deathDate);
 
-  const lifespan = (() => {
-    if (!birthDate) return null;
-    const birth = format(birthDate, 'yyyy');
-    if (person.isLiving) return `b. ${birth}`;
-    if (deathDate) return `${birth} - ${format(deathDate, 'yyyy')}`;
-    return `b. ${birth}`;
-  })();
+  const lifespanDisplay =
+    lifespan ??
+    (() => {
+      if (!birthDate) return person.isLiving ? 'Living' : null;
+      const birth = format(birthDate, 'yyyy');
+      if (person.isLiving) return `b. ${birth}`;
+      if (deathDate) return `${birth} - ${format(deathDate, 'yyyy')}`;
+      return `b. ${birth}`;
+    })();
 
   const initials =
     `${person.firstName?.[0] || ''}${person.lastName?.[0] || ''}`.toUpperCase() ||
@@ -83,9 +87,9 @@ export function PersonCard({
             <span className="text-gray-500"> (nee {person.maidenName})</span>
           )}
         </Link>
-        {lifespan && (
+        {lifespanDisplay && (
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {lifespan}
+            {lifespanDisplay}
           </p>
         )}
       </div>
