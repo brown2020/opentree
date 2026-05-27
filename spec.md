@@ -77,7 +77,7 @@ OpenTree is a fully client-rendered Next.js app. Users authenticate via Firebase
 | Document management | ✅ | Typed uploads (PDF/images), view, delete |
 | Timeline events | ✅ | Birth, death, marriage, etc. |
 | GEDCOM export | ✅ | Client-side 5.5.1 generation |
-| GEDCOM import | ⚠️ Partial | Imports immediately into current tree; **no preview step** |
+| GEDCOM import | ✅ | Preview modal with counts and sample names before merge |
 | Full ZIP export | ✅ | GEDCOM + all photos/documents per person |
 | Member sharing | ⚠️ Partial | Invite by email works **only if invitee already has an account** |
 | Public/private toggle | ⚠️ Partial | Toggle exists; living-person redaction for non-editors ✅; **no guest viewing route** |
@@ -156,7 +156,7 @@ Storage files live under `users/{ownerId}/trees/{treeId}/persons/...` regardless
 |------------|--------|
 | No living-person redaction on public trees | ~~Living people's full details visible~~ **Fixed in Milestone 1** — client-side redaction; Firestore still returns full records |
 | No pending invite system | Cannot invite someone who has not signed up yet |
-| No GEDCOM import preview | Import merges immediately; mistakes are hard to undo |
+| No GEDCOM import preview | ~~Import merges immediately~~ **Fixed in Milestone 2** — preview modal before commit |
 | No guest/public viewing route | "Public tree" link requires login; product promise of shareable read-only URL not fully delivered |
 | Activity logging incomplete | Edits from person pages, photo/doc/event changes may not appear in feed |
 | No duplicate-person detection | Large imports or manual entry can create duplicates |
@@ -194,7 +194,7 @@ Ordered by product impact and dependency. Each item is sized for one focused com
 
 ---
 
-### Milestone 2: GEDCOM import preview
+### Milestone 2: GEDCOM import preview ✅ DONE
 
 **User value:** Users can review what an import will add before modifying their tree.
 
@@ -204,7 +204,7 @@ Ordered by product impact and dependency. Each item is sized for one focused com
 - Clear warning when importing into a non-empty tree (merge, not replace)
 - Errors (malformed file) shown before any writes
 
-**Implementation intent:** Split `handleImportGedcom` in `tree/[treeId]/page.tsx` — parse first, show `ConfirmModal`, commit on approval. Reuse existing `parseGedcom()`.
+**Implementation note (May 2026):** Added `gedcomImport.ts` with `parseGedcomForImport()` validation, `GedcomImportPreviewModal`, and split parse/commit flow in `TreeSettingsModal` + `handleCommitGedcomImport` on the tree page. Parse errors show in settings; commit errors show in the preview modal.
 
 ---
 
