@@ -4,7 +4,8 @@ import { useState, useCallback, useRef } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import type { Tree, TreeMember, MemberRole, Person, Relationship } from '@/lib/types';
+import type { Tree, TreeMember, TreeInvite, MemberRole, Person, Relationship } from '@/lib/types';
+import type { AddTreeMemberResult } from '@/lib/firebase/members';
 import { exportToGedcom, downloadGedcom } from '@/lib/utils/gedcom';
 import type { ParsedFamily, ParsedPerson } from '@/lib/utils/gedcom';
 import { parseGedcomForImport } from '@/lib/utils/gedcomImport';
@@ -21,9 +22,11 @@ interface TreeSettingsModalProps {
   persons: Person[];
   relationships: Relationship[];
   members: TreeMember[];
+  invites: TreeInvite[];
   onUpdateTree: (data: { isPublic?: boolean }) => Promise<void>;
-  onAddMember: (email: string, role: MemberRole) => Promise<{ success: boolean; error?: string }>;
+  onAddMember: (email: string, role: MemberRole) => Promise<AddTreeMemberResult>;
   onRemoveMember: (userId: string) => Promise<boolean>;
+  onRevokeInvite: (inviteId: string) => Promise<boolean>;
   onUpdateMemberRole: (userId: string, role: MemberRole) => Promise<boolean>;
   onCommitGedcomImport: (data: {
     persons: ParsedPerson[];
@@ -39,9 +42,11 @@ export function TreeSettingsModal({
   persons,
   relationships,
   members,
+  invites,
   onUpdateTree,
   onAddMember,
   onRemoveMember,
+  onRevokeInvite,
   onUpdateMemberRole,
   onCommitGedcomImport,
   isOwner,
@@ -51,6 +56,7 @@ export function TreeSettingsModal({
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<MemberRole>('viewer');
   const [inviteError, setInviteError] = useState('');
+  const [inviteMessage, setInviteMessage] = useState('');
   const [isInviting, setIsInviting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isExportingZip, setIsExportingZip] = useState(false);
@@ -163,11 +169,17 @@ export function TreeSettingsModal({
 
     setIsInviting(true);
     setInviteError('');
+    setInviteMessage('');
 
     try {
       const result = await onAddMember(inviteEmail.trim(), inviteRole);
       if (result.success) {
         setInviteEmail('');
+        setInviteMessage(
+          result.pending
+            ? 'Invite sent. They will get access when they sign up and verify their email.'
+            : 'Member added successfully.'
+        );
       } else {
         setInviteError(result.error || 'Failed to add member');
       }
@@ -282,9 +294,46 @@ export function TreeSettingsModal({
                     Invite
                   </Button>
                 </div>
+                {inviteMessage && (
+                  <p className="text-sm text-emerald-600 dark:text-emerald-400" role="status">
+                    {inviteMessage}
+                  </p>
+                )}
                 {inviteError && (
                   <p className="text-sm text-red-500">{inviteError}</p>
                 )}
+              </div>
+            )}
+
+            {isOwner && invites.length > 0 && (
+              <div>
+                <h3 className="mb-2 text-sm font-medium text-gray-900 dark:text-gray-100">
+                  Pending invites ({invites.length})
+                </h3>
+                <div className="space-y-2">
+                  {invites.map((invite) => (
+                    <div
+                      key={invite.id}
+                      className="flex items-center justify-between rounded-lg border border-dashed border-amber-200 bg-amber-50/50 px-4 py-3 dark:border-amber-800 dark:bg-amber-900/10"
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                          {invite.email}
+                        </p>
+                        <p className="text-xs text-amber-700 dark:text-amber-400">
+                          Pending · {invite.role}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => onRevokeInvite(invite.id)}
+                        className="text-sm text-red-500 hover:text-red-700"
+                      >
+                        Revoke
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -313,6 +362,9 @@ export function TreeSettingsModal({
                             {member.email}
                           </p>
                         )}
+                        <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                          Active
+                        </p>
                       </div>
                       <div className="flex items-center gap-2">
                         {isOwner ? (

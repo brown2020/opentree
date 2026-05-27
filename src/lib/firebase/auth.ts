@@ -35,7 +35,7 @@ export async function signUp(
 
   // Create user document in Firestore
   await setDoc(doc(db, 'users', user.uid), {
-    email: user.email,
+    email: user.email?.toLowerCase() ?? '',
     displayName,
     photoURL: null,
     createdAt: serverTimestamp(),
@@ -66,9 +66,9 @@ export async function signInWithGoogle(): Promise<FirebaseUser> {
   const userDocRef = doc(db, 'users', user.uid);
   const userDoc = await getDoc(userDocRef);
 
-  if (!userDoc.exists()) {
+    if (!userDoc.exists()) {
     await setDoc(userDocRef, {
-      email: user.email,
+      email: user.email?.toLowerCase() ?? '',
       displayName: user.displayName,
       photoURL: user.photoURL,
       createdAt: serverTimestamp(),
@@ -115,9 +115,9 @@ export async function completeEmailLinkSignIn(
   const userDocRef = doc(db, 'users', user.uid);
   const userDoc = await getDoc(userDocRef);
 
-  if (!userDoc.exists()) {
+    if (!userDoc.exists()) {
     await setDoc(userDocRef, {
-      email: user.email,
+      email: user.email?.toLowerCase() ?? '',
       displayName: user.email?.split('@')[0] || 'User',
       photoURL: null,
       createdAt: serverTimestamp(),

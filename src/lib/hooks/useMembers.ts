@@ -3,22 +3,27 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   getTreeMembers,
+  getTreeInvites,
   addTreeMember,
   removeTreeMember,
   updateMemberRole,
+  revokeTreeInvite,
 } from '@/lib/firebase/members';
 import { useAuth } from './useAuth';
-import type { TreeMember, MemberRole } from '@/lib/types';
+import type { TreeMember, TreeInvite, MemberRole } from '@/lib/types';
+import type { AddTreeMemberResult } from '@/lib/firebase/members';
 
 export function useMembers(treeId: string | null) {
   const { user } = useAuth();
   const [members, setMembers] = useState<TreeMember[]>([]);
+  const [invites, setInvites] = useState<TreeInvite[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchMembers = useCallback(async () => {
     if (!treeId) {
       setMembers([]);
+      setInvites([]);
       setLoading(false);
       return;
     }
@@ -27,8 +32,12 @@ export function useMembers(treeId: string | null) {
     setError(null);
 
     try {
-      const data = await getTreeMembers(treeId);
-      setMembers(data);
+      const [memberData, inviteData] = await Promise.all([
+        getTreeMembers(treeId),
+        getTreeInvites(treeId),
+      ]);
+      setMembers(memberData);
+      setInvites(inviteData);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Failed to fetch members'
@@ -41,25 +50,40 @@ export function useMembers(treeId: string | null) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      if (!treeId) { setMembers([]); setLoading(false); return; }
+      if (!treeId) {
+        setMembers([]);
+        setInvites([]);
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       setError(null);
       try {
-        const data = await getTreeMembers(treeId);
-        if (!cancelled) setMembers(data);
+        const [memberData, inviteData] = await Promise.all([
+          getTreeMembers(treeId),
+          getTreeInvites(treeId),
+        ]);
+        if (!cancelled) {
+          setMembers(memberData);
+          setInvites(inviteData);
+        }
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to fetch members');
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Failed to fetch members');
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [treeId]);
 
   const add = async (
     email: string,
     role: MemberRole
-  ): Promise<{ success: boolean; error?: string }> => {
+  ): Promise<AddTreeMemberResult> => {
     if (!treeId || !user) {
       return { success: false, error: 'Not authenticated' };
     }
@@ -93,6 +117,21 @@ export function useMembers(treeId: string | null) {
     }
   };
 
+  const revokeInvite = async (inviteId: string): Promise<boolean> => {
+    if (!treeId) return false;
+
+    try {
+      await revokeTreeInvite(treeId, inviteId);
+      await fetchMembers();
+      return true;
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Failed to revoke invite'
+      );
+      return false;
+    }
+  };
+
   const updateRole = async (
     userId: string,
     role: MemberRole
@@ -113,11 +152,13 @@ export function useMembers(treeId: string | null) {
 
   return {
     members,
+    invites,
     loading,
     error,
     refetch: fetchMembers,
     add,
     remove,
+    revokeInvite,
     updateRole,
   };
 }

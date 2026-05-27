@@ -79,7 +79,7 @@ OpenTree is a fully client-rendered Next.js app. Users authenticate via Firebase
 | GEDCOM export | ✅ | Client-side 5.5.1 generation |
 | GEDCOM import | ✅ | Preview modal with counts and sample names before merge |
 | Full ZIP export | ✅ | GEDCOM + all photos/documents per person |
-| Member sharing | ⚠️ Partial | Invite by email works **only if invitee already has an account** |
+| Member sharing | ✅ | Invite by email; pending invites for users without accounts |
 | Public/private toggle | ⚠️ Partial | Toggle exists; living-person redaction for non-editors ✅; **no guest viewing route** |
 | Activity feed | ⚠️ Partial | Logged on tree page for person add/delete/relationship add; **not all CRUD paths** |
 | User settings | ✅ | Display name, photo, password, theme |
@@ -155,7 +155,7 @@ Storage files live under `users/{ownerId}/trees/{treeId}/persons/...` regardless
 | Limitation | Impact |
 |------------|--------|
 | No living-person redaction on public trees | ~~Living people's full details visible~~ **Fixed in Milestone 1** — client-side redaction; Firestore still returns full records |
-| No pending invite system | Cannot invite someone who has not signed up yet |
+| No pending invite system | ~~Cannot invite unsigned users~~ **Fixed in Milestone 3** — pending invites resolve on signup + verification |
 | No GEDCOM import preview | ~~Import merges immediately~~ **Fixed in Milestone 2** — preview modal before commit |
 | No guest/public viewing route | "Public tree" link requires login; product promise of shareable read-only URL not fully delivered |
 | Activity logging incomplete | Edits from person pages, photo/doc/event changes may not appear in feed |
@@ -208,7 +208,7 @@ Ordered by product impact and dependency. Each item is sized for one focused com
 
 ---
 
-### Milestone 3: Pending collaboration invites
+### Milestone 3: Pending collaboration invites ✅ DONE
 
 **User value:** Tree owners can invite relatives who have not signed up yet; access granted automatically on signup.
 
@@ -218,7 +218,7 @@ Ordered by product impact and dependency. Each item is sized for one focused com
 - Owner sees pending vs accepted status in tree settings
 - Owner can revoke pending invites
 
-**Implementation intent:** New `trees/{treeId}/invites/{inviteId}` subcollection or top-level `invites` collection keyed by email hash. Hook into post-verification flow in `AuthProvider` or signup completion. Update `addTreeMember()` in `members.ts`.
+**Implementation note (May 2026):** Added `trees/{treeId}/invites/{email}` subcollection, updated `addTreeMember()` to create pending invites, `resolvePendingInvitesForUser()` via collection group query on email verification (`AuthProvider` + verify-email page). Owner UI shows pending vs active members; revoke supported. Firestore rules + collection group index added. User emails normalized to lowercase on signup for reliable matching.
 
 ---
 
