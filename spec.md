@@ -159,7 +159,7 @@ Storage files live under `users/{ownerId}/trees/{treeId}/persons/...` regardless
 | No GEDCOM import preview | ~~Import merges immediately~~ **Fixed in Milestone 2** — preview modal before commit |
 | No guest/public viewing route | ~~Requires login~~ **Fixed in Milestone 4** — `/tree/[treeId]/public` read-only route |
 | Activity logging incomplete | ~~Not all CRUD paths~~ **Fixed in Milestone 5** — centralized hook-based logging |
-| No duplicate-person detection | Large imports or manual entry can create duplicates |
+| No duplicate-person detection | ✅ | Name + birth year similarity warning on add person and GEDCOM import preview |
 | No person merge | Fixing duplicates requires manual cleanup |
 | No source/citation model | Records cannot be attached as structured sources |
 | No printable chart export | Tree visualization is screen-only |
@@ -250,7 +250,7 @@ Ordered by product impact and dependency. Each item is sized for one focused com
 
 ---
 
-### Milestone 6: Duplicate person detection
+### Milestone 6: Duplicate person detection ✅
 
 **User value:** Users avoid cluttered trees from accidental double-entry or messy GEDCOM imports.
 
@@ -259,7 +259,7 @@ Ordered by product impact and dependency. Each item is sized for one focused com
 - Warning is dismissible; not a hard block
 - "View possible duplicate" link to existing person
 
-**Implementation intent:** `findSimilarPersons(name, birthYear, persons[])` utility; integrate in `PersonForm` submit and GEDCOM preview (Milestone 2).
+**Implementation note (May 2026):** Added `findSimilarPersons()` and `findGedcomImportDuplicates()` in `duplicatePerson.ts`. `PersonForm` shows dismissible `DuplicatePersonWarning` before create; GEDCOM preview lists possible duplicates with view links. Exact normalized name match; birth years must match when both known.
 
 ---
 

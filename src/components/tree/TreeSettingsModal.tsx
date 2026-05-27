@@ -9,6 +9,7 @@ import type { AddTreeMemberResult } from '@/lib/firebase/members';
 import { exportToGedcom, downloadGedcom } from '@/lib/utils/gedcom';
 import type { ParsedFamily, ParsedPerson } from '@/lib/utils/gedcom';
 import { parseGedcomForImport } from '@/lib/utils/gedcomImport';
+import { findGedcomImportDuplicates, type GedcomDuplicateMatch } from '@/lib/utils/duplicatePerson';
 import { exportTreeAsZip } from '@/lib/utils/exportZip';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { GedcomImportPreviewModal } from '@/components/tree/GedcomImportPreviewModal';
@@ -69,6 +70,9 @@ export function TreeSettingsModal({
     families: ParsedFamily[];
     summary: ReturnType<typeof parseGedcomForImport>['summary'];
   } | null>(null);
+  const [importDuplicateMatches, setImportDuplicateMatches] = useState<
+    GedcomDuplicateMatch[]
+  >([]);
   const [importCommitError, setImportCommitError] = useState<string | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
   const [isTogglingPublic, setIsTogglingPublic] = useState(false);
@@ -121,6 +125,9 @@ export function TreeSettingsModal({
         const parsed = parseGedcomForImport(text);
         setImportPreviewFileName(file.name);
         setImportPreviewData(parsed);
+        setImportDuplicateMatches(
+          findGedcomImportDuplicates(parsed.persons, persons)
+        );
         setImportPreviewOpen(true);
       } catch (err) {
         setImportParseError(
@@ -128,7 +135,7 @@ export function TreeSettingsModal({
         );
       }
     },
-    []
+    [persons]
   );
 
   const resetImportPreview = useCallback(() => {
@@ -136,6 +143,7 @@ export function TreeSettingsModal({
     setImportPreviewData(null);
     setImportPreviewFileName('');
     setImportCommitError(null);
+    setImportDuplicateMatches([]);
   }, []);
 
   const handleCloseImportPreview = useCallback(() => {
@@ -587,6 +595,8 @@ export function TreeSettingsModal({
           summary={importPreviewData.summary}
           fileName={importPreviewFileName}
           existingPersonCount={persons.length}
+          treeId={tree.id}
+          duplicateMatches={importDuplicateMatches}
           loading={isImporting}
           error={importCommitError}
         />
