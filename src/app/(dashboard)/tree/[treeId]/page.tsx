@@ -24,6 +24,7 @@ import { TreeSettingsModal } from '@/components/tree/TreeSettingsModal';
 import { RelationshipCalculatorModal } from '@/components/tree/RelationshipCalculatorModal';
 import { ActivityFeed } from '@/components/tree/ActivityFeed';
 import { useTreePrivacy } from '@/lib/hooks/useTreePrivacy';
+import { downloadPedigreeChart } from '@/lib/utils/pedigreeChartExport';
 import type { Person, RelationshipType } from '@/lib/types';
 import type { PersonSchemaFormData } from '@/lib/utils/validation';
 
@@ -73,6 +74,19 @@ export default function TreePage() {
     () => getDisplayPersons(persons),
     [persons, getDisplayPersons]
   );
+
+  const handleExportChart = useCallback(() => {
+    const root = effectiveRoot || displayPersons[0]?.id;
+    if (!root || !tree || displayPersons.length === 0) return;
+
+    downloadPedigreeChart({
+      persons: displayPersons,
+      relationships,
+      rootPersonId: root,
+      treeName: tree.name,
+      getLifespanLabel,
+    });
+  }, [effectiveRoot, displayPersons, tree, relationships, getLifespanLabel]);
 
   const handleAddPerson = async (data: PersonSchemaFormData) => {
     setIsAdding(true);
@@ -292,6 +306,32 @@ export default function TreePage() {
               List
             </button>
           </div>
+
+          {viewMode === 'tree' && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportChart}
+              disabled={displayPersons.length === 0}
+              aria-label="Export pedigree chart as SVG"
+            >
+              <svg
+                className="-ml-1 mr-1.5 h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 10v6m0 0l-3-3m3 3l3-3M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M4 12V8a4 4 0 014-4h8a4 4 0 014 4v4"
+                />
+              </svg>
+              Export chart
+            </Button>
+          )}
 
           {/* Action buttons */}
           <Button onClick={() => setAddModalOpen(true)} size="sm">
