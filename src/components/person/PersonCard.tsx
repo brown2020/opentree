@@ -13,6 +13,7 @@ interface PersonCardProps {
   onClick?: () => void;
   onAddRelationship?: () => void;
   lifespan?: string | null;
+  readOnly?: boolean;
 }
 
 export function PersonCard({
@@ -22,6 +23,7 @@ export function PersonCard({
   onClick,
   onAddRelationship,
   lifespan,
+  readOnly = false,
 }: PersonCardProps) {
   const birthDate = timestampToDate(person.birthDate);
   const deathDate = timestampToDate(person.deathDate);
@@ -77,16 +79,25 @@ export function PersonCard({
       )}
 
       <div className="min-w-0 flex-1">
-        <Link
-          href={`/person/${person.id}?tree=${treeId}`}
-          onClick={(e) => e.stopPropagation()}
-          className="block truncate font-medium text-gray-900 hover:text-emerald-600 dark:text-gray-100 dark:hover:text-emerald-400"
-        >
-          {person.firstName} {person.lastName}
-          {person.maidenName && (
-            <span className="text-gray-500"> (nee {person.maidenName})</span>
-          )}
-        </Link>
+        {readOnly ? (
+          <span className="block truncate font-medium text-gray-900 dark:text-gray-100">
+            {person.firstName} {person.lastName}
+            {person.maidenName && (
+              <span className="text-gray-500"> (nee {person.maidenName})</span>
+            )}
+          </span>
+        ) : (
+          <Link
+            href={`/person/${person.id}?tree=${treeId}`}
+            onClick={(e) => e.stopPropagation()}
+            className="block truncate font-medium text-gray-900 hover:text-emerald-600 dark:text-gray-100 dark:hover:text-emerald-400"
+          >
+            {person.firstName} {person.lastName}
+            {person.maidenName && (
+              <span className="text-gray-500"> (nee {person.maidenName})</span>
+            )}
+          </Link>
+        )}
         {lifespanDisplay && (
           <p className="text-sm text-gray-500 dark:text-gray-400">
             {lifespanDisplay}

@@ -39,12 +39,12 @@ service cloud.firestore {
     // ── Trees ─────────────────────────────────────────────────────
     match /trees/{treeId} {
 
-      // Read: owner, members, or public tree
-      allow read: if isAuthenticated() && (
-        resource.data.userId == request.auth.uid
-        || isMember(resource)
-        || resource.data.isPublic == true
-      );
+      // Read: public trees for anyone; private trees for owner/members only
+      allow read: if resource.data.isPublic == true
+        || (isAuthenticated() && (
+          resource.data.userId == request.auth.uid
+          || isMember(resource)
+        ));
 
       // Create: authenticated user, must set themselves as owner
       allow create: if isAuthenticated()
@@ -78,7 +78,7 @@ service cloud.firestore {
 
       // ── Members subcollection ─────────────────────────────────
       match /members/{memberId} {
-        allow read: if isAuthenticated() && canAccessTree(treeId);
+        allow read: if canAccessCollaborationData(treeId);
 
         allow create: if isAuthenticated()
           && isTreeOwner(treeId)
@@ -117,7 +117,7 @@ service cloud.firestore {
 
       // ── Activity subcollection ────────────────────────────────
       match /activity/{activityId} {
-        allow read: if isAuthenticated() && canAccessTree(treeId);
+        allow read: if canAccessCollaborationData(treeId);
 
         allow create: if isAuthenticated()
           && canEditTree(treeId)
@@ -134,7 +134,7 @@ service cloud.firestore {
 
       // ── Relationships subcollection ───────────────────────────
       match /relationships/{relationshipId} {
-        allow read: if isAuthenticated() && canAccessTree(treeId);
+        allow read: if canAccessTree(treeId);
 
         allow create: if isAuthenticated()
           && canEditTree(treeId)
@@ -155,7 +155,7 @@ service cloud.firestore {
 
       // ── Persons subcollection ─────────────────────────────────
       match /persons/{personId} {
-        allow read: if isAuthenticated() && canAccessTree(treeId);
+        allow read: if canAccessTree(treeId);
 
         allow create: if isAuthenticated()
           && canEditTree(treeId)
@@ -189,7 +189,7 @@ service cloud.firestore {
 
         // ── Photos ────────────────────────────────────────────
         match /photos/{photoId} {
-          allow read: if isAuthenticated() && canAccessTree(treeId);
+          allow read: if canAccessTree(treeId);
 
           allow create: if isAuthenticated()
             && canEditTree(treeId)
@@ -209,7 +209,7 @@ service cloud.firestore {
 
         // ── Documents ─────────────────────────────────────────
         match /documents/{documentId} {
-          allow read: if isAuthenticated() && canAccessTree(treeId);
+          allow read: if canAccessTree(treeId);
 
           allow create: if isAuthenticated()
             && canEditTree(treeId)
@@ -230,7 +230,7 @@ service cloud.firestore {
 
         // ── Events (timeline) ─────────────────────────────────
         match /events/{eventId} {
-          allow read: if isAuthenticated() && canAccessTree(treeId);
+          allow read: if canAccessTree(treeId);
 
           allow create: if isAuthenticated()
             && canEditTree(treeId)
@@ -272,9 +272,22 @@ service cloud.firestore {
 
     function canAccessTree(treeId) {
       let tree = get(/databases/$(database)/documents/trees/$(treeId)).data;
-      return tree.userId == request.auth.uid
-        || (tree.memberIds is list && request.auth.uid in tree.memberIds)
-        || tree.isPublic == true;
+      return tree.isPublic == true
+        || (isAuthenticated() && (
+          tree.userId == request.auth.uid
+          || (tree.memberIds is list && request.auth.uid in tree.memberIds)
+        ));
+    }
+
+    function isTreeMember(treeId) {
+      let tree = get(/databases/$(database)/documents/trees/$(treeId)).data;
+      return isAuthenticated()
+        && tree.memberIds is list
+        && request.auth.uid in tree.memberIds;
+    }
+
+    function canAccessCollaborationData(treeId) {
+      return isTreeOwner(treeId) || isTreeMember(treeId);
     }
 
     function canEditTree(treeId) {
