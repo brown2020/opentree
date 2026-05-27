@@ -15,6 +15,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { uploadDocument, deleteFile } from '@/lib/firebase/storage';
+import { logTreeActivity } from '@/lib/firebase/activity';
 import { useAuth } from './useAuth';
 import type { Document, DocumentFormData } from '@/lib/types';
 
@@ -120,6 +121,16 @@ export function useDocuments(
       );
 
       await fetchDocuments();
+      if (user) {
+        const docName = data.name || file.name;
+        await logTreeActivity(
+          treeId,
+          { userId: user.uid, userDisplayName: user.displayName },
+          'document_added',
+          `Added document: ${docName}`,
+          personId
+        );
+      }
       return docRef.id;
     } catch (err) {
       setError(
@@ -178,6 +189,15 @@ export function useDocuments(
       );
 
       await fetchDocuments();
+      if (user) {
+        await logTreeActivity(
+          treeId,
+          { userId: user.uid, userDisplayName: user.displayName },
+          'document_deleted',
+          `Removed document: ${document.name}`,
+          personId
+        );
+      }
       return true;
     } catch (err) {
       setError(

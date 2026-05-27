@@ -14,9 +14,12 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
+import { logTreeActivity } from '@/lib/firebase/activity';
+import { useAuth } from './useAuth';
 import type { PersonEvent, EventFormData } from '@/lib/types';
 
 export function useTimeline(treeId: string | null, personId: string | null) {
+  const { user } = useAuth();
   const [events, setEvents] = useState<PersonEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -92,6 +95,15 @@ export function useTimeline(treeId: string | null, personId: string | null) {
         }
       );
       await fetchEvents();
+      if (user) {
+        await logTreeActivity(
+          treeId,
+          { userId: user.uid, userDisplayName: user.displayName },
+          'event_added',
+          `Added event: ${data.title}`,
+          personId
+        );
+      }
       return docRef.id;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create event');
@@ -132,10 +144,22 @@ export function useTimeline(treeId: string | null, personId: string | null) {
     if (!treeId || !personId) return false;
 
     try {
+      const existing = events.find((event) => event.id === eventId);
       await deleteDoc(
         doc(db, 'trees', treeId, 'persons', personId, 'events', eventId)
       );
       await fetchEvents();
+      if (user) {
+        await logTreeActivity(
+          treeId,
+          { userId: user.uid, userDisplayName: user.displayName },
+          'event_deleted',
+          existing
+            ? `Removed event: ${existing.title}`
+            : 'Removed a timeline event',
+          personId
+        );
+      }
       return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete event');

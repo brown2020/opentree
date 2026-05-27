@@ -7,8 +7,12 @@ export type ActivityType =
   | 'relationship_added'
   | 'relationship_removed'
   | 'photo_added'
+  | 'photo_deleted'
   | 'document_added'
+  | 'document_deleted'
   | 'event_added'
+  | 'event_deleted'
+  | 'gedcom_imported'
   | 'tree_updated'
   | 'member_added'
   | 'member_removed';

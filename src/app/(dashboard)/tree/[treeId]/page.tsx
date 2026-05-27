@@ -6,12 +6,11 @@ import { useTreeDetails } from '@/lib/hooks/useTree';
 import { usePersons } from '@/lib/hooks/usePerson';
 import { useRelationships } from '@/lib/hooks/useRelationships';
 import { useMembers } from '@/lib/hooks/useMembers';
-import { useActivity } from '@/lib/hooks/useActivity';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useTreeStore } from '@/lib/stores/treeStore';
 import { createPerson, updateTree } from '@/lib/firebase/firestore';
 import { addRelationship } from '@/lib/firebase/relationships';
-import { logActivity } from '@/lib/firebase/activity';
+import { logTreeActivity } from '@/lib/firebase/activity';
 import type { ParsedFamily, ParsedPerson } from '@/lib/utils/gedcom';
 import { Button } from '@/components/ui/Button';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
@@ -52,7 +51,6 @@ export default function TreePage() {
     updateRole: updateMemberRole,
   } = useMembers(treeId);
   const { persons, selectedPersonId, setSelectedPersonId } = useTreeStore();
-  const { refetch: refetchActivity } = useActivity(treeId);
 
   const [viewMode, setViewMode] = useState<ViewMode>('tree');
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -81,17 +79,6 @@ export default function TreePage() {
     try {
       await create(data);
       setAddModalOpen(false);
-
-      if (user) {
-        await logActivity(
-          treeId,
-          'person_added',
-          `Added ${data.firstName} ${data.lastName}`,
-          user.uid,
-          user.displayName
-        );
-        refetchActivity();
-      }
     } catch {
       // Error is surfaced by the usePerson hook's error state
     } finally {
@@ -101,22 +88,10 @@ export default function TreePage() {
 
   const handleDeletePerson = async () => {
     if (!deletePerson) return;
-    const name = `${deletePerson.firstName} ${deletePerson.lastName}`;
     setIsDeleting(true);
     try {
       await remove(deletePerson.id);
       setDeletePerson(null);
-
-      if (user) {
-        await logActivity(
-          treeId,
-          'person_deleted',
-          `Removed ${name}`,
-          user.uid,
-          user.displayName
-        );
-        refetchActivity();
-      }
     } catch {
       // Error is surfaced by the usePerson hook's error state
     } finally {
@@ -132,20 +107,6 @@ export default function TreePage() {
     setIsAddingRel(true);
     try {
       await addRel(type, person1Id, person2Id);
-
-      if (user) {
-        const p1 = persons.find((p) => p.id === person1Id);
-        const p2 = persons.find((p) => p.id === person2Id);
-        const label = type === 'spouse' ? 'spouse' : 'parent-child';
-        await logActivity(
-          treeId,
-          'relationship_added',
-          `Added ${label} relationship: ${p1?.firstName || '?'} \u2194 ${p2?.firstName || '?'}`,
-          user.uid,
-          user.displayName
-        );
-        refetchActivity();
-      }
     } catch {
       // Error is surfaced by the useRelationships hook's error state
     } finally {
@@ -242,6 +203,15 @@ export default function TreePage() {
 
       refetchPersons();
       refetchRels();
+
+      if (user) {
+        await logTreeActivity(
+          treeId,
+          { userId: user.uid, userDisplayName: user.displayName },
+          'gedcom_imported',
+          `Imported GEDCOM (${parsedPersons.length} people, ${families.length} families)`
+        );
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to import GEDCOM file';
       setImportError(msg);

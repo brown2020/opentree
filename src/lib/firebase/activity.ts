@@ -9,7 +9,13 @@ import {
 } from 'firebase/firestore';
 import { db } from './config';
 import { batchDeleteDocs } from './firestore';
+import { useActivityStore } from '@/lib/stores/activityStore';
 import type { Activity, ActivityType } from '@/lib/types/activity';
+
+export interface ActivityActor {
+  userId: string;
+  userDisplayName: string | null;
+}
 
 /**
  * Log an activity event for a tree.
@@ -30,6 +36,31 @@ export async function logActivity(
     personId,
     timestamp: serverTimestamp(),
   });
+}
+
+/**
+ * Log activity from a hook mutation. Failures are non-blocking.
+ */
+export async function logTreeActivity(
+  treeId: string,
+  actor: ActivityActor,
+  type: ActivityType,
+  description: string,
+  personId: string | null = null
+): Promise<void> {
+  try {
+    await logActivity(
+      treeId,
+      type,
+      description,
+      actor.userId,
+      actor.userDisplayName,
+      personId
+    );
+    useActivityStore.getState().notifyActivityChanged();
+  } catch {
+    // Activity logging must not break primary mutations
+  }
 }
 
 /**

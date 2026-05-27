@@ -9,6 +9,7 @@ import {
   updateMemberRole,
   revokeTreeInvite,
 } from '@/lib/firebase/members';
+import { logTreeActivity } from '@/lib/firebase/activity';
 import { useAuth } from './useAuth';
 import type { TreeMember, TreeInvite, MemberRole } from '@/lib/types';
 import type { AddTreeMemberResult } from '@/lib/firebase/members';
@@ -92,6 +93,21 @@ export function useMembers(treeId: string | null) {
       const result = await addTreeMember(treeId, email, role, user.uid);
       if (result.success) {
         await fetchMembers();
+        if (result.pending) {
+          await logTreeActivity(
+            treeId,
+            { userId: user.uid, userDisplayName: user.displayName },
+            'member_added',
+            `Invited ${email.trim().toLowerCase()} (pending)`
+          );
+        } else {
+          await logTreeActivity(
+            treeId,
+            { userId: user.uid, userDisplayName: user.displayName },
+            'member_added',
+            `Added ${email.trim().toLowerCase()} as ${role}`
+          );
+        }
       }
       return result;
     } catch (err) {
@@ -106,8 +122,17 @@ export function useMembers(treeId: string | null) {
     if (!treeId) return false;
 
     try {
+      const member = members.find((m) => m.userId === userId);
       await removeTreeMember(treeId, userId);
       await fetchMembers();
+      if (user && member) {
+        await logTreeActivity(
+          treeId,
+          { userId: user.uid, userDisplayName: user.displayName },
+          'member_removed',
+          `Removed ${member.displayName || member.email}`
+        );
+      }
       return true;
     } catch (err) {
       setError(

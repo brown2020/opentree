@@ -15,6 +15,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { uploadPhoto, deleteFile } from '@/lib/firebase/storage';
+import { logTreeActivity } from '@/lib/firebase/activity';
 import { useAuth } from './useAuth';
 import type { Photo, PhotoFormData } from '@/lib/types';
 
@@ -116,6 +117,15 @@ export function usePhotos(
       );
 
       await fetchPhotos();
+      if (user) {
+        await logTreeActivity(
+          treeId,
+          { userId: user.uid, userDisplayName: user.displayName },
+          'photo_added',
+          data?.caption ? `Added photo: ${data.caption}` : 'Added a photo',
+          personId
+        );
+      }
       return docRef.id;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to upload photo');
@@ -157,6 +167,15 @@ export function usePhotos(
       );
 
       await fetchPhotos();
+      if (user) {
+        await logTreeActivity(
+          treeId,
+          { userId: user.uid, userDisplayName: user.displayName },
+          'photo_deleted',
+          photo.caption ? `Removed photo: ${photo.caption}` : 'Removed a photo',
+          personId
+        );
+      }
       return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete photo');
