@@ -48,8 +48,15 @@ export function PersonForm({
   // eslint-disable-next-line react-hooks/incompatible-library -- watch() is inherently mutable; React Compiler correctly skips this component
   const isLiving = watch('isLiving');
 
+  const handleFormSubmit = async (data: PersonSchemaFormData) => {
+    const payload = data.isLiving
+      ? { ...data, deathDate: null, deathPlace: '' }
+      : data;
+    await onSubmit(payload);
+  };
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2">
         <Input
           label="First Name"

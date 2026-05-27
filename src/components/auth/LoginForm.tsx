@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signIn, sendEmailLinkSignIn } from '@/lib/firebase/auth';
+import { navigateAfterSignIn } from '@/lib/auth/session';
 import { loginSchema, type LoginFormData } from '@/lib/utils/validation';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -32,7 +33,7 @@ export function LoginForm() {
     setError(null);
     try {
       await signIn(data.email, data.password);
-      router.push('/');
+      await navigateAfterSignIn(router);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to sign in';
       if (message.includes('invalid-credential')) {

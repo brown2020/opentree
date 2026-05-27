@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   isEmailLinkSignIn,
   completeEmailLinkSignIn,
   getStoredEmailForSignIn,
 } from '@/lib/firebase/auth';
+import { navigateAfterSignIn } from '@/lib/auth/session';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { FullPageLoader } from '@/components/ui/LoadingSpinner';
@@ -18,9 +19,13 @@ export default function EmailLinkPage() {
   const [error, setError] = useState<string | null>(null);
   const [processing, setProcessing] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const signInAttempted = useRef(false);
 
   useEffect(() => {
     const handleEmailLink = async () => {
+      if (signInAttempted.current) return;
+      signInAttempted.current = true;
+
       // Check if this is a valid email link
       const link = window.location.href;
       if (!isEmailLinkSignIn(link)) {
@@ -34,8 +39,9 @@ export default function EmailLinkPage() {
       if (storedEmail) {
         try {
           await completeEmailLinkSignIn(storedEmail, link);
-          router.push('/');
+          await navigateAfterSignIn(router);
         } catch (err) {
+          signInAttempted.current = false;
           const message = err instanceof Error ? err.message : 'Failed to sign in';
           if (message.includes('invalid-action-code')) {
             setError('This sign-in link has expired or already been used. Please request a new one.');
@@ -46,6 +52,7 @@ export default function EmailLinkPage() {
         }
       } else {
         // Need user to provide email
+        signInAttempted.current = false;
         setNeedsEmail(true);
         setProcessing(false);
       }
@@ -68,7 +75,7 @@ export default function EmailLinkPage() {
     try {
       const link = window.location.href;
       await completeEmailLinkSignIn(email, link);
-      router.push('/');
+      await navigateAfterSignIn(router);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to sign in';
       if (message.includes('invalid-action-code')) {

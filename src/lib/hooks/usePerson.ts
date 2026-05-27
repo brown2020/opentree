@@ -8,13 +8,11 @@ import {
   updatePerson,
   deletePerson,
 } from '@/lib/firebase/firestore';
-import { useAuth } from './useAuth';
 import { useTreeStore } from '@/lib/stores/treeStore';
 import type { Person } from '@/lib/types';
 import type { PersonSchemaFormData } from '@/lib/utils/validation';
 
 export function usePersons(treeId: string | null) {
-  const { user } = useAuth();
   const { setPersons } = useTreeStore();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -87,10 +85,10 @@ export function usePersons(treeId: string | null) {
   };
 
   const remove = async (personId: string): Promise<boolean> => {
-    if (!treeId || !user) return false;
+    if (!treeId) return false;
 
     try {
-      await deletePerson(treeId, personId, user.uid);
+      await deletePerson(treeId, personId);
       await fetchPersons();
       return true;
     } catch (err) {

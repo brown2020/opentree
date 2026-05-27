@@ -217,12 +217,15 @@ export async function updatePerson(
 
 export async function deletePerson(
   treeId: string,
-  personId: string,
-  userId: string
+  personId: string
 ): Promise<void> {
-  // Remove relationships referencing this person
+  const tree = await getTree(treeId);
+  if (!tree) {
+    throw new Error('Tree not found');
+  }
+
   await removePersonRelationships(treeId, personId);
-  await deletePersonAndSubcollections(treeId, personId, userId);
+  await deletePersonAndSubcollections(treeId, personId, tree.userId);
 }
 
 // Helper to convert Firestore timestamp to Date

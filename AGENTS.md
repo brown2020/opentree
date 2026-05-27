@@ -117,7 +117,7 @@ firebase deploy --only firestore:rules,storage
 Run before committing:
 
 ```bash
-npm run lint && npm run build
+npm run lint && npm run build && npm test
 ```
 
 There is **no test suite** (`npm test` does not exist). There is **no separate typecheck script** — `npm run build` runs TypeScript via Next.js.
@@ -126,7 +126,7 @@ There is **no test suite** (`npm test` does not exist). There is **no separate t
 
 - Never use watch mode (`--watch`, `-w`)
 - Never open a headed browser or require manual login for CI-style checks
-- Use `npm run lint` and `npm run build` only
+- Use `npm run lint`, `npm run build`, and `npm test` only
 - Do not prompt for user input; pass non-interactive flags when available
 - Firebase-dependent runtime behavior cannot be fully verified without `.env.local` credentials
 
@@ -157,7 +157,7 @@ There is **no test suite** (`npm test` does not exist). There is **no separate t
 Almost the entire app is client-side. There are:
 - **No** `app/api/` routes
 - **No** `'use server'` actions
-- **No** middleware
+- **Middleware** (`src/proxy.ts`) for cookie-based route redirects only
 
 Server Components are used sparingly (e.g. auth page shells with metadata). Default to `'use client'` for anything touching Firebase, Zustand, or forms.
 
@@ -165,16 +165,15 @@ Do not introduce Server Actions or API routes unless the product explicitly requ
 
 ## Route protection
 
-Protection is **client-side only**:
+Protection uses **middleware** (session cookie) plus **client guards**:
 
-| Guard | Location | Behavior |
+| Layer | Location | Behavior |
 |-------|----------|----------|
+| `proxy.ts` | Server edge | Redirects based on `ot-auth` cookie (`1` = verified, `pending` = unverified) |
 | `AuthGuard` | `(dashboard)/layout.tsx` | Redirect unauthenticated → `/login`; unverified → `/verify-email` |
 | `GuestGuard` | `(auth)/layout.tsx` | Redirect authenticated → `/` |
 
-There is no Next.js middleware. Unauthenticated users cannot reach dashboard UI, but this is not server-enforced. Firestore rules are the real data boundary.
-
-Public trees (`isPublic: true`) are readable by authenticated users per rules, but there is **no guest/public route** — the dashboard AuthGuard blocks unauthenticated access entirely.
+`AuthProvider` syncs the `ot-auth` cookie when Firebase auth state changes. The cookie is a UX/defense-in-depth marker — not cryptographically verified. Firestore/Storage rules remain the authoritative data boundary. Full server-side token verification requires Firebase Admin SDK session cookies.
 
 ## State management
 
@@ -189,7 +188,7 @@ Prefer extending existing hooks/stores over adding new global state libraries.
 
 ## Testing expectations
 
-No automated tests exist. Validation is lint + build. When adding test infrastructure, use Jest + React Testing Library and add an `npm test` script — but do not add tests unless the task requires it.
+No automated integration tests. Unit tests run via Vitest (`npm test`) for auth route matching and other pure logic.
 
 ## Files and systems requiring extra caution
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { format } from 'date-fns';
 import type { Person } from '@/lib/types';
 import { timestampToDate } from '@/lib/firebase/firestore';
@@ -43,14 +43,15 @@ export function TreeSearch({ persons, onSelectPerson }: TreeSearchProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const results = query.trim()
-    ? persons.filter((p) => {
-        const q = query.toLowerCase();
-        const fullName = `${p.firstName} ${p.lastName}`.toLowerCase();
-        const maiden = p.maidenName?.toLowerCase() || '';
-        return fullName.includes(q) || maiden.includes(q);
-      })
-    : [];
+  const results = useMemo(() => {
+    if (!query.trim()) return [];
+    const q = query.toLowerCase();
+    return persons.filter((p) => {
+      const fullName = `${p.firstName} ${p.lastName}`.toLowerCase();
+      const maiden = p.maidenName?.toLowerCase() || '';
+      return fullName.includes(q) || maiden.includes(q);
+    });
+  }, [query, persons]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -61,10 +62,6 @@ export function TreeSearch({ persons, onSelectPerson }: TreeSearchProps) {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  useEffect(() => {
-    setActiveIndex(-1);
-  }, [query]);
 
   const handleSelect = useCallback(
     (personId: string) => {
@@ -136,6 +133,7 @@ export function TreeSearch({ persons, onSelectPerson }: TreeSearchProps) {
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
+            setActiveIndex(-1);
             setIsOpen(true);
           }}
           onFocus={() => query.trim() && setIsOpen(true)}
