@@ -594,6 +594,8 @@ function PersonDetailContent() {
         onClose={() => setQuickAddType(null)}
         onSubmit={handleQuickAdd}
         loading={isQuickAdding}
+        treeId={treeId!}
+        existingPersons={persons}
       />
     </div>
   );

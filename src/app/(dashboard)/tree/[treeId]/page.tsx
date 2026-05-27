@@ -471,6 +471,8 @@ export default function TreePage() {
         onClose={() => setAddModalOpen(false)}
         onSubmit={handleAddPerson}
         loading={isAdding}
+        treeId={treeId}
+        existingPersons={persons}
       />
 
       <ConfirmModal

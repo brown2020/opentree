@@ -1,8 +1,10 @@
 'use client';
 
+import Link from 'next/link';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import type { GedcomImportSummary } from '@/lib/utils/gedcomImport';
+import type { GedcomDuplicateMatch } from '@/lib/utils/duplicatePerson';
 
 interface GedcomImportPreviewModalProps {
   isOpen: boolean;
@@ -11,6 +13,8 @@ interface GedcomImportPreviewModalProps {
   summary: GedcomImportSummary;
   fileName: string;
   existingPersonCount: number;
+  treeId: string;
+  duplicateMatches?: GedcomDuplicateMatch[];
   loading?: boolean;
   error?: string | null;
 }
@@ -22,6 +26,8 @@ export function GedcomImportPreviewModal({
   summary,
   fileName,
   existingPersonCount,
+  treeId,
+  duplicateMatches = [],
   loading = false,
   error = null,
 }: GedcomImportPreviewModalProps) {
@@ -88,6 +94,37 @@ export function GedcomImportPreviewModal({
                   and {remainingNames} more…
                 </li>
               )}
+            </ul>
+          </div>
+        )}
+
+        {duplicateMatches.length > 0 && (
+          <div
+            role="alert"
+            className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-900/20"
+          >
+            <h3 className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+              Possible duplicates ({duplicateMatches.length})
+            </h3>
+            <p className="mt-1 text-sm text-amber-800 dark:text-amber-300">
+              Some people in this file may already exist in your tree. You can
+              still import — nothing will be replaced.
+            </p>
+            <ul className="mt-2 max-h-32 space-y-1 overflow-y-auto text-sm">
+              {duplicateMatches.map((match) => (
+                <li key={match.existingPerson.id}>
+                  <Link
+                    href={`/person/${match.existingPerson.id}?tree=${treeId}`}
+                    className="text-emerald-700 underline hover:text-emerald-800 dark:text-emerald-400"
+                  >
+                    View possible duplicate: {match.existingPerson.firstName}{' '}
+                    {match.existingPerson.lastName}
+                    {match.importBirthYear != null
+                      ? ` (import b. ${match.importBirthYear})`
+                      : ''}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
         )}
