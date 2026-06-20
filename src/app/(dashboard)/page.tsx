@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTrees } from '@/lib/hooks/useTree';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -49,6 +49,15 @@ export default function DashboardPage() {
   const [consolidatedActivity, setConsolidatedActivity] = useState<ConsolidatedActivity[]>([]);
   const [activityLoading, setActivityLoading] = useState(true);
   const activityBump = useActivityStore((state) => state.bump);
+  const allDashboardTrees = useMemo(() => {
+    const seen = new Set<string>();
+    return [...trees, ...sharedTrees].filter((tree) => {
+      if (seen.has(tree.id)) return false;
+      seen.add(tree.id);
+      return true;
+    });
+  }, [trees, sharedTrees]);
+  const dashboardTreeCount = allDashboardTrees.length;
 
   useEffect(() => {
     let cancelled = false;
@@ -82,14 +91,17 @@ export default function DashboardPage() {
 
   // Fetch person counts for each tree
   useEffect(() => {
-    if (trees.length === 0) return;
+    if (dashboardTreeCount === 0) {
+      setTreeStats(new Map());
+      return;
+    }
 
     let cancelled = false;
 
     const fetchStats = async () => {
       const stats = new Map<string, TreeStats>();
       await Promise.all(
-        trees.map(async (tree) => {
+        allDashboardTrees.map(async (tree) => {
           try {
             const count = await getTreePersonCount(tree.id);
             if (!cancelled) stats.set(tree.id, { personCount: count });
@@ -106,11 +118,12 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [trees]);
+  }, [allDashboardTrees, dashboardTreeCount]);
 
   // Fetch consolidated activity across all trees
   useEffect(() => {
-    if (trees.length === 0) {
+    if (dashboardTreeCount === 0) {
+      setConsolidatedActivity([]);
       setActivityLoading(false);
       return;
     }
@@ -122,7 +135,7 @@ export default function DashboardPage() {
       try {
         const allActivities: ConsolidatedActivity[] = [];
         await Promise.all(
-          trees.map(async (tree) => {
+          allDashboardTrees.map(async (tree) => {
             try {
               const activities = await getTreeActivity(tree.id, 5);
               for (const a of activities) {
@@ -155,7 +168,7 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [trees, activityBump]);
+  }, [allDashboardTrees, dashboardTreeCount, activityBump]);
 
   const handleCreateTree = async (data: TreeSchemaFormData) => {
     setIsCreating(true);
@@ -184,7 +197,7 @@ export default function DashboardPage() {
     return bTime - aTime;
   });
 
-  if (loading) {
+  if (loading || sharedLoading) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
         <LoadingSpinner size="lg" />
@@ -209,9 +222,9 @@ export default function DashboardPage() {
             {getGreeting()}, {user?.displayName?.split(' ')[0] || 'there'}
           </h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            {trees.length === 0
+            {dashboardTreeCount === 0
               ? 'Get started by creating your first family tree'
-              : `You have ${trees.length} family tree${trees.length !== 1 ? 's' : ''}`}
+              : `You have access to ${dashboardTreeCount} family tree${dashboardTreeCount !== 1 ? 's' : ''}`}
           </p>
         </div>
         <Button onClick={() => setCreateModalOpen(true)}>
@@ -232,7 +245,7 @@ export default function DashboardPage() {
         </Button>
       </div>
 
-      {trees.length === 0 && sharedTrees.length === 0 ? (
+      {dashboardTreeCount === 0 ? (
         <OnboardingWizard />
       ) : (
         <div className="space-y-8">
@@ -256,7 +269,7 @@ export default function DashboardPage() {
           )}
 
           {/* Shared trees */}
-          {!sharedLoading && sharedTrees.length > 0 && (
+          {sharedTrees.length > 0 && (
             <div>
               <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
                 Shared with Me
@@ -267,6 +280,7 @@ export default function DashboardPage() {
                     key={tree.id}
                     tree={tree}
                     isShared
+                    personCount={treeStats.get(tree.id)?.personCount}
                   />
                 ))}
               </div>
