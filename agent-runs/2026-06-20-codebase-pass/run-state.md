@@ -11,23 +11,23 @@
 
 ## Current State
 
-- Phase: Preflight and Repo Docs
-- Task: T-001
+- Phase: Baseline Validation
+- Task: T-002
 - Status: In progress
-- Last command: npm run lint
+- Last command: npm run build
 - Last result: Pass
-- Last pushed commit: b3ad621df99dbec7bf9bde2e1af736fa2660631e
-- Branch sync: dev matched origin/dev before report edits; git push --dry-run origin dev returned "Everything up-to-date"
-- Working tree: Safe in-scope report/doc edits in progress
-- Next action: Inspect/stage preflight docs/report changes, commit, dry-run push, and push to origin/dev
+- Last pushed commit: ff191b15aa4d0f52e70d7421be632a28f25da82d
+- Branch sync: dev matched origin/dev after preflight push; baseline report edits in progress
+- Working tree: Safe in-scope baseline report edits in progress
+- Next action: Commit and push baseline validation report, then build findings backlog
 
 ## Dirty File Classification
 
 | Path | Classification | Owner/Reason |
 | --- | --- | --- |
-| agent-runs/2026-06-20-codebase-pass/ | Safe-to-commit | Codebase-improvement run reports |
-| AGENTS.md | Safe-to-commit | Docs Sweep Loop current-state correction |
-| spec.md | Safe-to-commit | Docs Sweep Loop current-state correction |
+| agent-runs/2026-06-20-codebase-pass/run-state.md | In-scope source | Baseline Validation report/state update |
+| agent-runs/2026-06-20-codebase-pass/task-queue.md | In-scope source | Baseline Validation task update |
+| agent-runs/2026-06-20-codebase-pass/02-baseline-validation.md | In-scope source | Baseline Validation report |
 
 ## Blockers
 
