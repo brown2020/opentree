@@ -11,25 +11,23 @@
 
 ## Current State
 
-- Phase: Package and Dead-Code Cleanup
-- Task: T-005
+- Phase: Review
+- Task: T-006
 - Status: In progress
-- Last command: npm run build
+- Last command: git status --short --branch
 - Last result: Pass
-- Last pushed commit: 07cfb64bb69486133b145e08a62ef798ceb1877a
-- Branch sync: dev matched origin/dev after F-001 push; package cleanup edits in progress
-- Working tree: In-scope package and cleanup report edits in progress
-- Next action: Commit and push package cleanup, then run review
+- Last pushed commit: b15858c4c4a29e20b69ab1995dbc2f08a7c0f667
+- Branch sync: dev matched origin/dev after cleanup push; review report edits in progress
+- Working tree: In-scope review report edits in progress
+- Next action: Commit and push review report, then run stabilization
 
 ## Dirty File Classification
 
 | Path | Classification | Owner/Reason |
 | --- | --- | --- |
-| package.json | In-scope source | Vitest patch update |
-| package-lock.json | In-scope source | Vitest/Vite patch update |
-| agent-runs/2026-06-20-codebase-pass/run-state.md | In-scope source | Cleanup phase state update |
-| agent-runs/2026-06-20-codebase-pass/task-queue.md | In-scope source | Cleanup phase task update |
-| agent-runs/2026-06-20-codebase-pass/05-package-and-dead-code-cleanup.md | In-scope source | Cleanup phase report |
+| agent-runs/2026-06-20-codebase-pass/run-state.md | In-scope source | Review phase state update |
+| agent-runs/2026-06-20-codebase-pass/task-queue.md | In-scope source | Review phase task update |
+| agent-runs/2026-06-20-codebase-pass/06-review.md | In-scope source | Review phase report |
 
 ## Blockers
 
