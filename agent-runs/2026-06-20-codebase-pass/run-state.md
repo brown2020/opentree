@@ -11,23 +11,24 @@
 
 ## Current State
 
-- Phase: Findings Backlog
-- Task: T-003
+- Phase: Execute Fixes and Improvements
+- Task: T-004
 - Status: In progress
-- Last command: nl -ba src/app/(dashboard)/page.tsx
+- Last command: npm run build
 - Last result: Pass
-- Last pushed commit: 5405e43990f42988059f8a52b02e5ad28ce051e6
-- Branch sync: dev matched origin/dev after baseline push; findings report edits in progress
-- Working tree: Safe in-scope findings report edits in progress
-- Next action: Commit and push findings backlog, then execute F-001 dashboard fix
+- Last pushed commit: 6b77b327acb5cc47cccfb8ae4a4e61ff11d8598d
+- Branch sync: dev matched origin/dev after findings push; F-001 fix/report edits in progress
+- Working tree: In-scope source and execution report edits in progress
+- Next action: Commit and push F-001 dashboard fix, then run package/dead-code cleanup diagnostics
 
 ## Dirty File Classification
 
 | Path | Classification | Owner/Reason |
 | --- | --- | --- |
-| agent-runs/2026-06-20-codebase-pass/run-state.md | In-scope source | Findings Backlog state update |
-| agent-runs/2026-06-20-codebase-pass/task-queue.md | In-scope source | Findings Backlog task update |
-| agent-runs/2026-06-20-codebase-pass/03-findings-backlog.md | In-scope source | Findings Backlog report |
+| src/app/(dashboard)/page.tsx | In-scope source | F-001 dashboard shared-tree summaries fix |
+| agent-runs/2026-06-20-codebase-pass/run-state.md | In-scope source | Execute phase state update |
+| agent-runs/2026-06-20-codebase-pass/task-queue.md | In-scope source | Execute phase task update |
+| agent-runs/2026-06-20-codebase-pass/04-execute-fixes-and-improvements.md | In-scope source | Execute phase report |
 
 ## Blockers
 
