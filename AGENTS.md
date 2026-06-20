@@ -6,7 +6,7 @@ Read this file before making any changes. `spec.md` is the authoritative product
 
 OpenTree is a free, open-source (GNU AGPL v3) family tree web application. Users authenticate, create one or more trees, add people and relationships, upload photos and documents, and visualize connected pedigree charts. Data lives in Firebase (Auth, Firestore, Storage). The app is deployed on Vercel.
 
-There is **no backend server** in this repo: no API routes, no Server Actions, no Firebase Admin SDK, no middleware. All data access runs in the browser via the Firebase client SDK, protected by Firestore and Storage security rules.
+There is **no backend server** in this repo: no API routes, no Server Actions, and no Firebase Admin SDK. `src/proxy.ts` is a lightweight Next.js proxy for cookie-based route redirects only; all data access still runs in the browser via the Firebase client SDK, protected by Firestore and Storage security rules.
 
 ## Product purpose
 
@@ -120,7 +120,7 @@ Run before committing:
 npm run lint && npm run build && npm test
 ```
 
-There is **no test suite** (`npm test` does not exist). There is **no separate typecheck script** — `npm run build` runs TypeScript via Next.js.
+Unit tests run through Vitest with `npm test`. There is **no separate typecheck script** — `npm run build` runs TypeScript via Next.js.
 
 ## Non-interactive testing rules
 

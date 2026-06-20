@@ -46,7 +46,7 @@ Licensed under **GNU AGPL v3**. Deployed on **Vercel** with **Firebase** as the 
 
 ## 2. Current application state
 
-*Verified by code review, May 2026. Items marked **(inferred)** are conclusions from code inspection, not user-tested claims.*
+*Verified by code review, June 2026. Items marked **(inferred)** are conclusions from code inspection, not user-tested claims.*
 
 ### What the app does today
 
@@ -119,7 +119,7 @@ No third-party analytics, payment, email delivery (beyond Firebase Auth emails),
 - **Validation:** Zod schemas in `src/lib/utils/validation.ts`
 - **Visualization:** D3 selection/zoom/transition + custom layout (not d3-hierarchy)
 - **Security:** `firestore.rules` and `storage.rules` — no server-side enforcement layer
-- **No API routes, Server Actions, middleware, Admin SDK, background jobs, or cron**
+- **No API routes, Server Actions, Admin SDK, background jobs, or cron**; `src/proxy.ts` is limited to cookie-based route redirects
 
 ### Data model
 
@@ -147,7 +147,7 @@ Storage files live under `users/{ownerId}/trees/{treeId}/persons/...` regardless
 4. **Auth guards are client-side** — dashboard routes flash loader then redirect; not server-enforced
 5. **Public tree guest access** — unauthenticated reads allowed for public trees (persons, relationships); members/activity remain private
 6. **Storage public reads** — public tree media readable without auth; living-person photos still redacted in UI
-7. **No automated test suite** — quality relies on lint + build + manual testing
+7. **No automated integration tests** — unit coverage exists for auth route matching, GEDCOM import/export helpers, privacy redaction, duplicate detection, and invite email utilities via Vitest
 8. **No `.env.local.example`** — new developers must create `.env.local` manually from Firebase console
 
 ### Known limitations
