@@ -16,9 +16,9 @@ Update every compatible direct dependency, apply verified major migrations, elim
 
 - Branch: `dev`
 - Upstream: `origin/dev`
-- Commit: `a733575` before package edits
-- Pushed to: pending cleanup checkpoint
-- Sync status: clean and synchronized before edits
+- Commit: `e35d2dd` (`chore: update packages and remove dead code`)
+- Pushed to: `origin/dev`
+- Sync status: clean and synchronized after push
 
 ## Loop
 
@@ -34,7 +34,7 @@ Update every compatible direct dependency, apply verified major migrations, elim
 - Current phase: Package and Dead-Code Cleanup
 - Current task: T-005 / F-001, F-002, F-003, F-005
 - Last pushed commit: `a733575`
-- Next action: commit/push cleanup, then run Judge review
+- Next action: run Judge review
 - Blockers: none; ESLint 10 and TypeScript 7 are documented upstream compatibility deferrals
 
 ## Commands Run
