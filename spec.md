@@ -46,7 +46,7 @@ Licensed under **GNU AGPL v3**. Deployed on **Vercel** with **Firebase** as the 
 
 ## 2. Current application state
 
-*Verified by code review, June 2026. Items marked **(inferred)** are conclusions from code inspection, not user-tested claims.*
+*Verified by code review, July 2026. Items marked **(inferred)** are conclusions from code inspection, not user-tested claims.*
 
 ### What the app does today
 
