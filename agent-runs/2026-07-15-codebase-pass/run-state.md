@@ -11,15 +11,15 @@
 
 ## Current State
 
-- Phase: Preflight and Repo Docs
-- Task: T-001
+- Phase: Baseline Validation
+- Task: T-002
 - Status: Ready for checkpoint
-- Last command: `npm run lint`
-- Last result: Pass
-- Last pushed commit: 04cbd1f2a141d7e5986bde51298d5bed19f8b8bc
-- Branch sync: Matched origin/dev before run-report edits; dry-run push passed
-- Working tree: In-scope run reports and `spec.md` verification-date edit
-- Next action: Commit/push preflight checkpoint, then run baseline validation
+- Last command: `npm run lint`, `npm test`, and `npm run build`
+- Last result: Pass; 6 test files/35 tests and production build clean
+- Last pushed commit: 296084e
+- Branch sync: Matched origin/dev before baseline report edits
+- Working tree: In-scope baseline/preflight report updates
+- Next action: Commit/push baseline report, then build findings backlog
 
 ## Dirty File Classification
 
