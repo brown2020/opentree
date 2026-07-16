@@ -11,21 +11,21 @@
 
 ## Current State
 
-- Phase: Stabilization
-- Task: T-006
-- Status: Ready for checkpoint
-- Last command: clean install, canonical gates, audit/tree checks, remote read, and dry-run push
-- Last result: Stabilization cycle 1 PASS; completion criteria met
-- Last pushed commit: 9a8c5af
-- Branch sync: Matched origin/dev before stabilization report edits
-- Working tree: In-scope stabilization/review report, run-state, and queue updates
-- Next action: Commit/push stabilization, then write integrator/final reports
+- Phase: Integrator
+- Task: T-007
+- Status: Ready for final checkpoint
+- Last command: final `npm run lint`, workflow validation, and `git diff --check`
+- Last result: Pass; final report checkpoint ready
+- Last pushed commit: ae6c04b
+- Branch sync: Matched origin/dev before final report edits
+- Working tree: In-scope integrator/final report, run-state, queue, and stabilization metadata
+- Next action: Commit/push final report, fetch, and verify clean synchronized `dev`
 
 ## Dirty File Classification
 
 | Path | Classification | Owner/Reason |
 | --- | --- | --- |
-| None | N/A | N/A |
+| `agent-runs/2026-07-15-codebase-pass/{07-stabilization-loop.md,08-integrator.md,final-report.md,run-state.md,task-queue.md}` | In-scope source | Final integration checkpoint |
 
 ## Blockers
 
