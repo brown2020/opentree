@@ -16,9 +16,9 @@ Preflight, branch synchronization, repository/spec inspection, dependency invent
 
 - Branch: `dev`
 - Upstream: `origin/dev`
-- Commit: `04cbd1f2a141d7e5986bde51298d5bed19f8b8bc` before phase edits
-- Pushed to: pending preflight checkpoint
-- Sync status: clean and synced before phase edits; remote read and dry-run push passed
+- Commit: `296084e` (`docs: map dependency maintenance run`)
+- Pushed to: `origin/dev`
+- Sync status: clean and synchronized after push
 
 ## Loop
 
@@ -27,14 +27,14 @@ Preflight, branch synchronization, repository/spec inspection, dependency invent
 - Verify gate: docs/plan match repository evidence and lint passes
 - Stop condition: plan, state, queue, docs, and report are pushed or a Git/quality blocker is recorded
 - Attempt: 1/1
-- Result: pass; lint clean, pending commit/push checkpoint
+- Result: pass
 
 ## Run State
 
 - Current phase: Preflight and Repo Docs
 - Current task: T-001
 - Last pushed commit: `04cbd1f2a141d7e5986bde51298d5bed19f8b8bc`
-- Next action: commit/push this checkpoint, then run the baseline
+- Next action: baseline validation
 - Blockers: none
 
 ## Commands Run
@@ -99,10 +99,10 @@ The workflow scaffold validator, Git remote read/sync/dry-run checks, and `npm r
 
 - Status inspected: yes, clean and synced before phase edits
 - Diff checked: `git diff --check` passed; untracked run-report content reviewed
-- Files staged: pending
-- Dry-run push: passed before phase edits
-- Push: pending
-- Post-push sync: pending
+- Files staged: `spec.md` and `agent-runs/2026-07-15-codebase-pass/*`
+- Dry-run push: passed
+- Push: passed (`296084e`)
+- Post-push sync: local `dev` matched `origin/dev`
 
 ## Stabilization
 

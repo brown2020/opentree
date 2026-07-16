@@ -2,96 +2,113 @@
 
 ## Agent
 
-Name:
+Name: Codex
 
 ## Scope
 
-What this phase inspected or changed:
+Untouched baseline validation of the installed dependency tree before package updates.
 
 ## Inputs
 
-Reports, files, or commands used:
+`package.json`, `package-lock.json`, installed `node_modules`, project scripts, and preflight npm diagnostics.
 
 ## Branch and Push
 
-- Branch:
-- Upstream:
-- Commit:
-- Pushed to:
-- Sync status:
+- Branch: `dev`
+- Upstream: `origin/dev`
+- Commit: `296084e` before baseline report edits
+- Pushed to: pending baseline checkpoint
+- Sync status: clean and synchronized before report edits
 
 ## Loop
 
-- Name:
-- Goal:
-- Verify gate:
-- Stop condition:
-- Attempt:
-- Result:
+- Name: Baseline Validation Loop
+- Goal: establish deterministic pre-upgrade quality and dependency results
+- Verify gate: every project check passes or each failure is classified with ownership
+- Stop condition: baseline is clean and package/audit drift is captured
+- Attempt: 1/2
+- Result: pass for lint/tests/build; actionable dependency drift and audit findings classified for cleanup
 
 ## Run State
 
-- Current phase:
-- Current task:
-- Last pushed commit:
-- Next action:
-- Blockers:
+- Current phase: Baseline Validation
+- Current task: T-002
+- Last pushed commit: `296084e`
+- Next action: commit/push baseline report, then build findings backlog
+- Blockers: none
 
 ## Commands Run
 
 ```text
-None.
+npm run lint
+npm test
+npm run build
+npm outdated
+npm audit
+npm ls --depth=0
 ```
 
 ## Findings
 
-- None.
+- Lint passed with no warnings.
+- All 35 Vitest tests in 6 files passed.
+- Next.js 16.2.6 production build and TypeScript compilation passed with no warnings.
+- `npm outdated` identified 18 direct dependencies with newer releases, including five major-version upgrades.
+- `npm audit` reported 8 transitive advisories: 2 low, 5 moderate, and 1 critical.
+- The installed tree includes extraneous optional/native packages, so a clean post-update install-tree check is required.
 
 ## Changes Made
 
-- None.
+No source or package files were changed in this phase; only run reports were updated.
 
 ## Verification
 
-Checks performed and results:
+| Command | Result | Notes |
+| --- | --- | --- |
+| `npm run lint` | Pass | No ESLint warnings/errors |
+| `npm test` | Pass | 6 files, 35 tests |
+| `npm run build` | Pass | Next.js production build and TypeScript passed |
+| `npm outdated` | Expected nonzero | 18 direct packages listed |
+| `npm audit` | Expected nonzero | 8 advisories, including one critical transitive issue |
+| `npm ls --depth=0` | Pass with findings | Extraneous optional/native entries listed |
 
 ## Architecture and Lean Code Scorecard
 
 | Area | Status | Evidence | Action |
 | --- | --- | --- | --- |
-| Dependency direction | Not assessed | N/A | Assess if relevant |
-| Module cohesion | Not assessed | N/A | Assess if relevant |
-| Public surface area | Not assessed | N/A | Assess if relevant |
-| Data and side-effect flow | Not assessed | N/A | Assess if relevant |
-| Async/cache/resource lifecycle | Not assessed | N/A | Assess if relevant |
-| Duplication and dead code | Not assessed | N/A | Assess if relevant |
-| Dependency lean-ness | Not assessed | N/A | Assess if relevant |
-| Testability | Not assessed | N/A | Assess if relevant |
+| Dependency direction | Pass | Baseline compiles across existing client/Firebase boundaries | Preserve |
+| Module cohesion | Watch | Not changed or deeply assessed in baseline | Keep scope narrow |
+| Public surface area | Pass | Route and build manifests compile unchanged | Preserve |
+| Data and side-effect flow | Pass | No baseline test/build failure | Recheck after upgrades |
+| Async/cache/resource lifecycle | Watch | No integration runtime coverage | Inspect only with concrete evidence |
+| Duplication and dead code | Watch | Not assessed in baseline | Targeted cleanup search later |
+| Dependency lean-ness | Fail | Outdated direct packages, security advisories, extraneous installed entries | T-003/T-005 |
+| Testability | Pass | Full existing Vitest suite runs deterministically | Re-run after every update batch |
 
 ## Quality Gate
 
-- Command:
-- Result:
-- Notes:
+- Command: `npm run lint && npm test && npm run build`
+- Result: pass (commands run concurrently as independent read-only baseline gates)
+- Notes: Firebase-backed runtime flows were not manually exercised.
 
 ## Commit-Push Checkpoint
 
-- Status inspected:
-- Diff checked:
-- Files staged:
-- Dry-run push:
-- Push:
-- Post-push sync:
+- Status inspected: pending report diff review
+- Diff checked: pending
+- Files staged: pending
+- Dry-run push: pending
+- Push: pending
+- Post-push sync: pending
 
 ## Stabilization
 
-- Cycle:
-- Completion criteria status:
-- Remaining blockers:
+- Cycle: not started
+- Completion criteria status: baseline quality gates pass; dependency cleanup pending
+- Remaining blockers: none
 
 ## Risks
 
-Known risks or uncertainties:
+Existing tests cover pure logic but not Firebase-backed integration behavior. Major upgrades must therefore also pass strict TypeScript compilation and targeted code/config inspection.
 
 ## Open Questions
 
@@ -99,4 +116,4 @@ Known risks or uncertainties:
 
 ## Recommended Next Step
 
-What should happen next:
+Prioritize the update/migration batches and identify whether audit fixes are resolved by current direct releases.
