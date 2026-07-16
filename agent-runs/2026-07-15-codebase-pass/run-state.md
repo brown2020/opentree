@@ -11,15 +11,15 @@
 
 ## Current State
 
-- Phase: Findings Backlog
-- Task: T-003
+- Phase: Execute Fixes and Improvements
+- Task: T-004 / F-004
 - Status: Ready for checkpoint
-- Last command: React Doctor and targeted package/source compatibility inspection
-- Last result: Nine findings classified; F-001/F-002/F-004/F-005 executable, F-003 compatibility-gated, broad diagnostics deferred
-- Last pushed commit: 9202a36
-- Branch sync: Matched origin/dev before findings report edits
-- Working tree: In-scope findings/baseline report and queue updates
-- Next action: Commit/push findings, then execute F-004
+- Last command: lint, tests, build, and changed-line React Doctor
+- Last result: Pass; all three deprecated Zod email calls removed
+- Last pushed commit: 4f7e369
+- Branch sync: Matched origin/dev before fix edits
+- Working tree: Two in-scope schema source files and run reports
+- Next action: Commit/push fix, then execute T-005 package cleanup
 
 ## Dirty File Classification
 
