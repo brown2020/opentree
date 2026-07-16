@@ -1,0 +1,10 @@
+# Task Queue
+
+| ID | Phase | Priority | Type | Status | Owned Files | Evidence | Done-Check | Attempts | Stop Condition | Verification | Next Action |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| T-001 | Preflight | P1 | Setup | Ready for checkpoint | `spec.md`, `00-orchestration-plan.md`, `01-preflight-and-repo-docs.md`, `run-state.md`, `task-queue.md` | Clean synced `dev`, reachable SSH remote, July 2026 repo/spec inventory | Plan/state/queue/report are current and lint passes | 1/1 | Preflight checkpoint pushed or blocked by Git/quality gate | `npm run lint` passed | Commit and push |
+| T-002 | Baseline | P1 | Validation | Open | `02-baseline-validation.md`, `run-state.md`, `task-queue.md` | Project scripts and current installed dependency tree | Lint, tests, build, outdated, and audit results classified | 0/2 | Baseline clean or every failure has ownership | Canonical commands | Run baseline |
+| T-003 | Findings | P1 | Package update | Open | `03-findings-backlog.md`, `run-state.md`, `task-queue.md` | 18 outdated direct packages; 8 audit advisories | Updates/migrations prioritized with verification methods and scorecard | 0/2 | Executable package batch is clear | Findings Queue Loop | Build findings backlog |
+| T-004 | Execute | P1 | Bug | Open | Confirmed source/test files plus phase reports | Baseline or upgraded gates | Reproducible bugs/warnings fixed with targeted proof | 0/3 | No confirmed in-scope bug remains or real blocker recorded | Fix Validation Loop | Await baseline/update evidence |
+| T-005 | Cleanup | P1 | Package update | Open | `package.json`, `package-lock.json`, cleanup reports | npm registry outdated/audit output | All direct packages at current stable versions; canonical gates pass | 0/2 | Updated or exact incompatible deferral documented | Package Cleanup Loop | Apply updates after findings |
+| T-006 | Review/Stabilize | P1 | Review | Open | Review/stabilization/integrator reports and owned fix files | Full diff and validation results | Judge PASS; final completion gate passes | 0/3 | PASS or exact blocker recorded | Judge and Stabilization Loops | Run after cleanup |
