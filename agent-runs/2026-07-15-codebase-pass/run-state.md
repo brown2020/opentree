@@ -11,15 +11,15 @@
 
 ## Current State
 
-- Phase: Baseline Validation
-- Task: T-002
+- Phase: Findings Backlog
+- Task: T-003
 - Status: Ready for checkpoint
-- Last command: `npm run lint`, `npm test`, and `npm run build`
-- Last result: Pass; 6 test files/35 tests and production build clean
-- Last pushed commit: 296084e
-- Branch sync: Matched origin/dev before baseline report edits
-- Working tree: In-scope baseline/preflight report updates
-- Next action: Commit/push baseline report, then build findings backlog
+- Last command: React Doctor and targeted package/source compatibility inspection
+- Last result: Nine findings classified; F-001/F-002/F-004/F-005 executable, F-003 compatibility-gated, broad diagnostics deferred
+- Last pushed commit: 9202a36
+- Branch sync: Matched origin/dev before findings report edits
+- Working tree: In-scope findings/baseline report and queue updates
+- Next action: Commit/push findings, then execute F-004
 
 ## Dirty File Classification
 
@@ -33,4 +33,6 @@
 
 ## Deferred Items
 
-- None.
+- F-006 broad accessibility/button sweep: separate focused UI run.
+- F-007 broad performance/component refactors: separate evidence-backed optimization run.
+- F-008 Firebase/security rule review: requires explicit product/privacy judgment and Firebase rule verification.
