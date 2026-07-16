@@ -16,9 +16,9 @@ Untouched baseline validation of the installed dependency tree before package up
 
 - Branch: `dev`
 - Upstream: `origin/dev`
-- Commit: `296084e` before baseline report edits
-- Pushed to: pending baseline checkpoint
-- Sync status: clean and synchronized before report edits
+- Commit: `9202a36` (`test: document dependency baseline`)
+- Pushed to: `origin/dev`
+- Sync status: clean and synchronized after push
 
 ## Loop
 
@@ -34,7 +34,7 @@ Untouched baseline validation of the installed dependency tree before package up
 - Current phase: Baseline Validation
 - Current task: T-002
 - Last pushed commit: `296084e`
-- Next action: commit/push baseline report, then build findings backlog
+- Next action: build findings backlog
 - Blockers: none
 
 ## Commands Run
@@ -93,12 +93,12 @@ No source or package files were changed in this phase; only run reports were upd
 
 ## Commit-Push Checkpoint
 
-- Status inspected: pending report diff review
-- Diff checked: pending
-- Files staged: pending
-- Dry-run push: pending
-- Push: pending
-- Post-push sync: pending
+- Status inspected: yes
+- Diff checked: passed
+- Files staged: baseline/preflight reports, run state, and queue
+- Dry-run push: passed
+- Push: passed (`9202a36`)
+- Post-push sync: local `dev` matched `origin/dev`
 
 ## Stabilization
 
