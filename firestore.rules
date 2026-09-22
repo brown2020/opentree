@@ -95,8 +95,8 @@ service cloud.firestore {
 
         allow create: if isAuthenticated()
           && memberId == request.resource.data.userId
-          && request.resource.data.keys().hasAll(['userId', 'email', 'role', 'addedBy', 'addedAt'])
-          && request.resource.data.role in ['editor', 'viewer']
+          && request.resource.data.keys().hasAll(['userId', 'email', 'accessLevel', 'addedBy', 'addedAt'])
+          && request.resource.data.accessLevel in ['editor', 'viewer']
           && request.resource.data.userId is string
           && request.resource.data.email is string
           && (
@@ -108,9 +108,9 @@ service cloud.firestore {
           && isTreeOwner(treeId)
           && request.resource.data.userId == resource.data.userId
           && request.resource.data.email == resource.data.email
-          && request.resource.data.role in ['editor', 'viewer']
+          && request.resource.data.accessLevel in ['editor', 'viewer']
           && request.resource.data.diff(resource.data).affectedKeys()
-              .hasOnly(['role', 'displayName']);
+              .hasOnly(['accessLevel', 'displayName']);
 
         allow delete: if isAuthenticated() && isTreeOwner(treeId);
       }
@@ -122,10 +122,10 @@ service cloud.firestore {
         allow create: if isAuthenticated()
           && isTreeOwner(treeId)
           && inviteId == request.resource.data.email
-          && request.resource.data.keys().hasAll(['email', 'role', 'addedBy', 'addedAt'])
+          && request.resource.data.keys().hasAll(['email', 'accessLevel', 'addedBy', 'addedAt'])
           && request.resource.data.email is string
           && request.resource.data.email.size() > 0
-          && request.resource.data.role in ['editor', 'viewer']
+          && request.resource.data.accessLevel in ['editor', 'viewer']
           && request.resource.data.addedBy == request.auth.uid;
 
         allow delete: if isAuthenticated() && (
@@ -277,7 +277,7 @@ service cloud.firestore {
     // ── Helper functions ──────────────────────────────────────────
 
     function isAuthenticated() {
-      return request.auth != null;
+      return request.auth.uid != null;
     }
 
     function isMember(treeResource) {
@@ -318,7 +318,8 @@ service cloud.firestore {
     }
 
     function hasEditorRole(treeId) {
-      return get(/databases/$(database)/documents/trees/$(treeId)/members/$(request.auth.uid)).data.role == 'editor';
+      let member = get(/databases/$(database)/documents/trees/$(treeId)/members/$(request.auth.uid)).data;
+      return member.accessLevel == 'editor' || member.role == 'editor';
     }
 
     function canonicalUserEmail() {
@@ -340,8 +341,8 @@ service cloud.firestore {
         && hasPendingInvite(treeId)
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.email == email
-        && request.resource.data.role
-            == get(/databases/$(database)/documents/trees/$(treeId)/invites/$(email)).data.role
+        && request.resource.data.accessLevel
+            == get(/databases/$(database)/documents/trees/$(treeId)/invites/$(email)).data.accessLevel
         && request.resource.data.addedBy
             == get(/databases/$(database)/documents/trees/$(treeId)/invites/$(email)).data.addedBy;
     }

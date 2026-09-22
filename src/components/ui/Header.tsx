@@ -47,7 +47,9 @@ export function Header({ onMenuClick }: HeaderProps) {
   return (
     <header className="flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4 dark:border-gray-700 dark:bg-gray-800 lg:px-6">
       <button
+        type="button"
         onClick={onMenuClick}
+        aria-label="Open navigation menu"
         className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 lg:hidden dark:hover:bg-gray-700"
       >
         <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -98,8 +100,10 @@ export function Header({ onMenuClick }: HeaderProps) {
 
         {dropdownOpen && (
           <>
-            <div
-              className="fixed inset-0 z-10"
+            <button
+              type="button"
+              className="fixed inset-0 z-10 cursor-default bg-transparent"
+              aria-label="Close account menu"
               onClick={() => setDropdownOpen(false)}
             />
             <div className="absolute right-0 z-20 mt-2 w-48 rounded-lg bg-white py-1 shadow-lg ring-1 ring-black/5 dark:bg-gray-800 dark:ring-gray-700">

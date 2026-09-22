@@ -1,5 +1,7 @@
 'use client';
 
+const EMPTY_LIST: never[] = [];
+
 import { useState, useMemo } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
@@ -29,7 +31,7 @@ export function AddRelationshipModal({
   onClose,
   person,
   allPersons,
-  existingRelationships = [],
+  existingRelationships = EMPTY_LIST,
   onAdd,
   loading,
 }: AddRelationshipModalProps) {
@@ -182,9 +184,9 @@ export function AddRelationshipModal({
       <div className="space-y-4">
         {/* Relationship type selector */}
         <div>
-          <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <div className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300" id="rel-type-label">
             Relationship Type
-          </label>
+          </div>
           <div className="grid grid-cols-3 gap-2">
             {actions.map((a) => (
               <button
@@ -210,10 +212,12 @@ export function AddRelationshipModal({
 
         {/* Person selector */}
         <div>
-          <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label htmlFor="rel-person-search" className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
             Select Person
           </label>
           <Input
+            id="rel-person-search"
+            label=""
             placeholder="Search by name..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}

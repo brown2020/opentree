@@ -10,20 +10,20 @@ service firebase.storage {
 
     // ── Profile photos: users/{userId}/profile/{fileName} ───────
     match /users/{userId}/profile/{fileName} {
-      allow read: if request.auth != null;
+      allow read: if request.auth.uid != null && request.auth.uid == userId;
 
-      allow create: if request.auth != null
+      allow create: if request.auth.uid != null
         && request.auth.uid == userId
         && request.resource.size < 5 * 1024 * 1024
         && request.resource.contentType.matches('image/(jpeg|png|gif|webp|svg\\+xml)')
         && !fileName.matches('.*\\.\\.');
 
-      allow update: if request.auth != null
+      allow update: if request.auth.uid != null
         && request.auth.uid == userId
         && request.resource.size < 5 * 1024 * 1024
         && request.resource.contentType.matches('image/(jpeg|png|gif|webp|svg\\+xml)');
 
-      allow delete: if request.auth != null
+      allow delete: if request.auth.uid != null
         && request.auth.uid == userId;
     }
 
@@ -32,23 +32,23 @@ service firebase.storage {
 
       allow read: if canAccessTreeMedia(treeId, ownerId);
 
-      allow create: if request.auth != null
+      allow create: if request.auth.uid != null
         && canEditTreeMedia(treeId, ownerId)
         && !fileName.matches('.*\\.\\.')
         && validateMediaFile(type);
 
-      allow update: if request.auth != null
+      allow update: if request.auth.uid != null
         && canEditTreeMedia(treeId, ownerId)
         && validateMediaFile(type);
 
-      allow delete: if request.auth != null
+      allow delete: if request.auth.uid != null
         && canEditTreeMedia(treeId, ownerId);
     }
 
     function canAccessTreeMedia(treeId, ownerId) {
       let tree = firestore.get(/databases/(default)/documents/trees/$(treeId)).data;
       return tree.isPublic == true
-        || (request.auth != null && (
+        || (request.auth.uid != null && (
           request.auth.uid == ownerId
           || (tree.memberIds is list && request.auth.uid in tree.memberIds)
         ));
@@ -58,7 +58,7 @@ service firebase.storage {
       return request.auth.uid == ownerId
         || (firestore.get(/databases/(default)/documents/trees/$(treeId)).data.memberIds is list
             && request.auth.uid in firestore.get(/databases/(default)/documents/trees/$(treeId)).data.memberIds
-            && firestore.get(/databases/(default)/documents/trees/$(treeId)/members/$(request.auth.uid)).data.role == 'editor');
+            && (firestore.get(/databases/(default)/documents/trees/$(treeId)/members/$(request.auth.uid)).data.accessLevel == 'editor' || firestore.get(/databases/(default)/documents/trees/$(treeId)/members/$(request.auth.uid)).data.role == 'editor'));
     }
 
     function validateMediaFile(type) {

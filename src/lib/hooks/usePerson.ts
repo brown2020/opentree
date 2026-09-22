@@ -46,14 +46,7 @@ export function usePersons(treeId: string | null) {
       if (!treeId) { setPersons([]); setLoading(false); return; }
       setLoading(true);
       setError(null);
-      try {
-        const data = await getTreePersons(treeId);
-        if (!cancelled) setPersons(data);
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to fetch persons');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+      getTreePersons(treeId).then((data) => { if (!cancelled) setPersons(data); }).catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to fetch persons'); }).finally(() => { setLoading(false); });
     })();
     return () => { cancelled = true; };
   }, [treeId, setPersons]);
@@ -172,14 +165,7 @@ export function usePersonDetails(treeId: string | null, personId: string | null)
       if (!treeId || !personId) { setPerson(null); setLoading(false); return; }
       setLoading(true);
       setError(null);
-      try {
-        const data = await getPerson(treeId, personId);
-        if (!cancelled) setPerson(data);
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to fetch person');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+      getPerson(treeId, personId).then((data) => { if (!cancelled) setPerson(data); }).catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to fetch person'); }).finally(() => { setLoading(false); });
     })();
     return () => { cancelled = true; };
   }, [treeId, personId]);

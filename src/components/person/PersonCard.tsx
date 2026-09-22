@@ -50,11 +50,19 @@ export function PersonCard({
     unknown: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
   };
 
+  const name = (
+    <>
+      {person.firstName} {person.lastName}
+      {person.maidenName && (
+        <span className="text-gray-500"> (nee {person.maidenName})</span>
+      )}
+    </>
+  );
+
   return (
     <div
-      onClick={onClick}
       className={`
-        group flex cursor-pointer items-center gap-4 rounded-lg border p-4 transition-all
+        group flex w-full items-center gap-4 rounded-lg border p-4
         ${
           isSelected
             ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20'
@@ -62,57 +70,56 @@ export function PersonCard({
         }
       `}
     >
-      {person.profilePhotoUrl ? (
-        <Image
-          src={person.profilePhotoUrl}
-          alt={`${person.firstName} ${person.lastName}`}
-          width={48}
-          height={48}
-          className="h-12 w-12 rounded-full object-cover"
-        />
-      ) : (
-        <div
-          className={`flex h-12 w-12 items-center justify-center rounded-full text-sm font-medium ${genderColor[person.gender]}`}
-        >
-          {initials}
-        </div>
-      )}
-
-      <div className="min-w-0 flex-1">
-        {readOnly ? (
-          <span className="block truncate font-medium text-gray-900 dark:text-gray-100">
-            {person.firstName} {person.lastName}
-            {person.maidenName && (
-              <span className="text-gray-500"> (nee {person.maidenName})</span>
-            )}
-          </span>
+      <button
+        type="button"
+        onClick={onClick}
+        aria-pressed={isSelected}
+        aria-label={`Select ${person.firstName} ${person.lastName}`}
+        className="flex min-w-0 flex-1 items-center gap-4 text-left"
+      >
+        {person.profilePhotoUrl ? (
+          <Image
+            src={person.profilePhotoUrl}
+            alt={`${person.firstName} ${person.lastName}`}
+            width={48}
+            height={48}
+            className="h-12 w-12 rounded-full object-cover"
+          />
         ) : (
-          <Link
-            href={`/person/${person.id}?tree=${treeId}`}
-            onClick={(e) => e.stopPropagation()}
-            className="block truncate font-medium text-gray-900 hover:text-emerald-600 dark:text-gray-100 dark:hover:text-emerald-400"
+          <span
+            className={`flex h-12 w-12 items-center justify-center rounded-full text-sm font-medium ${genderColor[person.gender]}`}
           >
-            {person.firstName} {person.lastName}
-            {person.maidenName && (
-              <span className="text-gray-500"> (nee {person.maidenName})</span>
-            )}
-          </Link>
+            {initials}
+          </span>
         )}
-        {lifespanDisplay && (
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {lifespanDisplay}
-          </p>
-        )}
-      </div>
+
+        <span className="min-w-0 flex-1">
+          <span className="block truncate font-medium text-gray-900 dark:text-gray-100">
+            {name}
+          </span>
+          {lifespanDisplay && (
+            <span className="block text-sm text-gray-500 dark:text-gray-400">
+              {lifespanDisplay}
+            </span>
+          )}
+        </span>
+      </button>
 
       <div className="flex items-center gap-1">
+        {!readOnly && (
+          <Link
+            href={`/person/${person.id}?tree=${treeId}`}
+            className="rounded-lg px-2 py-1 text-sm font-medium text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20"
+          >
+            Open
+          </Link>
+        )}
         {onAddRelationship && (
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onAddRelationship();
-            }}
+            type="button"
+            onClick={onAddRelationship}
             className="rounded-lg p-1 text-gray-400 opacity-0 transition-opacity hover:bg-gray-100 hover:text-emerald-500 group-hover:opacity-100 dark:hover:bg-gray-700"
+            aria-label="Add relationship"
             title="Add relationship"
           >
             <svg

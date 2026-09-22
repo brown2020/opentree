@@ -136,10 +136,15 @@ export function TreeSearch({ persons, onSelectPerson, getLifespanLabel }: TreeSe
         >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
+        <label htmlFor="tree-people-search" className="absolute w-px h-px p-0 -m-px overflow-hidden whitespace-nowrap border-0" style={{clip:'rect(0,0,0,0)'}}>
+          Search people
+        </label>
         <input
+          id="tree-people-search"
           ref={inputRef}
           type="text"
           placeholder="Search people..."
+          aria-label="Search people"
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);

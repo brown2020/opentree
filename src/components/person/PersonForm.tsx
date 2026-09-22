@@ -1,16 +1,14 @@
 'use client';
 
-import { useState } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useState, useRef } from 'react';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
 import { DuplicatePersonWarning } from '@/components/person/DuplicatePersonWarning';
+import { PersonFormFields } from '@/components/person/PersonFormFields';
 import { personSchema, type PersonSchemaFormData } from '@/lib/utils/validation';
 import { findSimilarPersons } from '@/lib/utils/duplicatePerson';
 import type { Person } from '@/lib/types';
 import { timestampToDate } from '@/lib/firebase/firestore';
-import { toLocalDateString } from '@/lib/utils/dateFormat';
 
 interface PersonFormProps {
   person?: Person;
@@ -32,9 +30,7 @@ export function PersonForm({
   const [duplicateMatches, setDuplicateMatches] = useState<
     ReturnType<typeof findSimilarPersons> | null
   >(null);
-  const [pendingData, setPendingData] = useState<PersonSchemaFormData | null>(
-    null
-  );
+  const pendingDataRef = useRef<PersonSchemaFormData | null>(null);
   const {
     register,
     handleSubmit,
@@ -75,7 +71,7 @@ export function PersonForm({
         person?.id
       );
       if (similar.length > 0) {
-        setPendingData(payload);
+        pendingDataRef.current = payload;
         setDuplicateMatches(similar);
         return;
       }
@@ -85,14 +81,14 @@ export function PersonForm({
   };
 
   const handleContinueDespiteDuplicates = async () => {
-    if (!pendingData) return;
-    await onSubmit(pendingData);
-    setPendingData(null);
+    if (!pendingDataRef.current) return;
+    await onSubmit(pendingDataRef.current);
+    pendingDataRef.current = null;
     setDuplicateMatches(null);
   };
 
   const handleCancelDuplicateWarning = () => {
-    setPendingData(null);
+    pendingDataRef.current = null;
     setDuplicateMatches(null);
   };
 
@@ -109,153 +105,15 @@ export function PersonForm({
   }
 
   return (
-    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Input
-          label="First Name"
-          error={errors.firstName?.message}
-          {...register('firstName')}
-        />
-        <Input
-          label="Last Name"
-          error={errors.lastName?.message}
-          {...register('lastName')}
-        />
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Input
-          label="Middle Name"
-          error={errors.middleName?.message}
-          {...register('middleName')}
-        />
-        <Input
-          label="Maiden Name"
-          error={errors.maidenName?.message}
-          {...register('maidenName')}
-        />
-      </div>
-
-      <div>
-        <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-200">
-          Gender
-        </label>
-        <select
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
-          {...register('gender')}
-        >
-          <option value="unknown">Unknown</option>
-          <option value="male">Male</option>
-          <option value="female">Female</option>
-          <option value="other">Other</option>
-        </select>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <Controller
-          name="isLiving"
-          control={control}
-          render={({ field }) => (
-            <input
-              type="checkbox"
-              id="isLiving"
-              checked={field.value}
-              onChange={field.onChange}
-              className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-            />
-          )}
-        />
-        <label
-          htmlFor="isLiving"
-          className="text-sm font-medium text-gray-700 dark:text-gray-200"
-        >
-          Currently living
-        </label>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Controller
-          name="birthDate"
-          control={control}
-          render={({ field }) => (
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-200">
-                Birth Date
-              </label>
-              <input
-                type="date"
-                value={field.value ? toLocalDateString(field.value) : ''}
-                onChange={(e) =>
-                  field.onChange(
-                    e.target.value ? new Date(e.target.value + 'T00:00:00') : null
-                  )
-                }
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
-              />
-            </div>
-          )}
-        />
-        <Input
-          label="Birth Place"
-          error={errors.birthPlace?.message}
-          {...register('birthPlace')}
-        />
-      </div>
-
-      {!isLiving && (
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Controller
-            name="deathDate"
-            control={control}
-            render={({ field }) => (
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-200">
-                  Death Date
-                </label>
-                <input
-                  type="date"
-                  value={field.value ? toLocalDateString(field.value) : ''}
-                  onChange={(e) =>
-                    field.onChange(
-                      e.target.value ? new Date(e.target.value + 'T00:00:00') : null
-                    )
-                  }
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
-                />
-              </div>
-            )}
-          />
-          <Input
-            label="Death Place"
-            error={errors.deathPlace?.message}
-            {...register('deathPlace')}
-          />
-        </div>
-      )}
-
-      <div>
-        <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-200">
-          Biography
-        </label>
-        <textarea
-          rows={4}
-          placeholder="Write a brief biography..."
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
-          {...register('bio')}
-        />
-        {errors.bio?.message && (
-          <p className="mt-1 text-sm text-red-500">{errors.bio.message}</p>
-        )}
-      </div>
-
-      <div className="flex justify-end gap-3">
-        <Button type="button" variant="outline" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button type="submit" loading={loading}>
-          {person ? 'Save Changes' : 'Add Person'}
-        </Button>
-      </div>
-    </form>
+    <PersonFormFields
+      person={person}
+      isLiving={isLiving}
+      loading={loading}
+      errors={errors}
+      register={register}
+      control={control}
+      onCancel={onCancel}
+      onSubmit={handleSubmit(handleFormSubmit)}
+    />
   );
 }

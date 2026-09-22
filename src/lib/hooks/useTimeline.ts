@@ -54,28 +54,37 @@ export function useTimeline(treeId: string | null, personId: string | null) {
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      if (!treeId || !personId) { setEvents([]); setLoading(false); return; }
-      setLoading(true);
-      setError(null);
-      try {
-        const q = query(
-          collection(db, 'trees', treeId, 'persons', personId, 'events'),
-          orderBy('date', 'asc')
-        );
-        const snapshot = await getDocs(q);
+    if (!treeId || !personId) {
+      setEvents([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    const q = query(
+      collection(db, 'trees', treeId, 'persons', personId, 'events'),
+      orderBy('date', 'asc')
+    );
+    getDocs(q)
+      .then((snapshot) => {
+        if (cancelled) return;
         const data = snapshot.docs.map((d) => ({
           id: d.id,
           ...d.data(),
         })) as PersonEvent[];
-        if (!cancelled) setEvents(data);
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to fetch events');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
+        setEvents(data);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Failed to fetch events');
+        }
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [treeId, personId]);
 
   const create = async (data: EventFormData): Promise<string | null> => {

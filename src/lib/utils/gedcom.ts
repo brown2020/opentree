@@ -6,7 +6,7 @@ import { canViewFullPerson } from '@/lib/utils/personPrivacy';
 export interface GedcomExportOptions {
   tree?: Pick<Tree, 'isPublic' | 'userId'> | null;
   userId?: string | null;
-  members?: Pick<TreeMember, 'userId' | 'role'>[];
+  members?: Pick<TreeMember, 'userId' | 'accessLevel'>[];
 }
 
 /**
@@ -84,9 +84,10 @@ export function exportToGedcom(
     }
   }
 
+  const personById = new Map(persons.map((p) => [p.id, p]));
   for (const [parentId, children] of singleParentMap) {
     const familyId = `F${familyIdx++}`;
-    const parent = persons.find((p) => p.id === parentId);
+    const parent = personById.get(parentId);
     families.push({
       id: familyId,
       spouse1: parent?.gender === 'female' ? '' : parentId,
@@ -220,12 +221,12 @@ export function exportToGedcom(
     lines.push(`0 @${fam.id}@ FAM`);
 
     if (fam.spouse1) {
-      const sp1 = persons.find((p) => p.id === fam.spouse1);
+      const sp1 = personById.get(fam.spouse1);
       const tag = sp1?.gender === 'female' ? 'WIFE' : 'HUSB';
       lines.push(`1 ${tag} @${personIdMap.get(fam.spouse1)}@`);
     }
     if (fam.spouse2) {
-      const sp2 = persons.find((p) => p.id === fam.spouse2);
+      const sp2 = personById.get(fam.spouse2);
       const tag = sp2?.gender === 'female' ? 'WIFE' : 'HUSB';
       lines.push(`1 ${tag} @${personIdMap.get(fam.spouse2)}@`);
     }

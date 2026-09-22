@@ -22,43 +22,42 @@ export default function EmailLinkPage() {
   const signInAttempted = useRef(false);
 
   useEffect(() => {
-    const handleEmailLink = async () => {
-      if (signInAttempted.current) return;
-      signInAttempted.current = true;
+    if (signInAttempted.current) return;
+    signInAttempted.current = true;
 
-      // Check if this is a valid email link
-      const link = window.location.href;
-      if (!isEmailLinkSignIn(link)) {
-        setError('Invalid sign-in link. Please request a new one.');
-        setProcessing(false);
-        return;
-      }
+    const link = window.location.href;
+    if (!isEmailLinkSignIn(link)) {
+      setError('Invalid sign-in link. Please request a new one.');
+      setProcessing(false);
+      return;
+    }
 
-      // Try to get email from localStorage
-      const storedEmail = getStoredEmailForSignIn();
-      if (storedEmail) {
-        try {
-          await completeEmailLinkSignIn(storedEmail, link);
-          await navigateAfterSignIn(router);
-        } catch (err) {
-          signInAttempted.current = false;
-          const message = err instanceof Error ? err.message : 'Failed to sign in';
-          if (message.includes('invalid-action-code')) {
-            setError('This sign-in link has expired or already been used. Please request a new one.');
-          } else {
-            setError(message);
-          }
-          setProcessing(false);
-        }
-      } else {
-        // Need user to provide email
+    const storedEmail = getStoredEmailForSignIn();
+    if (!storedEmail) {
+      signInAttempted.current = false;
+      setNeedsEmail(true);
+      setProcessing(false);
+      return;
+    }
+
+    let cancelled = false;
+    completeEmailLinkSignIn(storedEmail, link)
+      .then(() => navigateAfterSignIn(router))
+      .catch((err: unknown) => {
+        if (cancelled) return;
         signInAttempted.current = false;
-        setNeedsEmail(true);
+        const message = err instanceof Error ? err.message : 'Failed to sign in';
+        if (message.includes('invalid-action-code')) {
+          setError('This sign-in link has expired or already been used. Please request a new one.');
+        } else {
+          setError(message);
+        }
         setProcessing(false);
-      }
-    };
+      });
 
-    handleEmailLink();
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   const handleSubmitEmail = async (e: React.FormEvent) => {
@@ -85,6 +84,7 @@ export default function EmailLinkPage() {
       } else {
         setError(message);
       }
+    } finally {
       setSubmitting(false);
     }
   };

@@ -44,14 +44,7 @@ export function useTrees() {
       if (!user) { setTrees([]); setLoading(false); return; }
       setLoading(true);
       setError(null);
-      try {
-        const data = await getUserTrees(user.uid);
-        if (!cancelled) setTrees(data);
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to fetch trees');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+      getUserTrees(user.uid).then((data) => { if (!cancelled) setTrees(data); }).catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to fetch trees'); }).finally(() => { setLoading(false); });
     })();
     return () => { cancelled = true; };
   }, [user]);
@@ -138,14 +131,7 @@ export function useTreeDetails(treeId: string | null) {
       if (!treeId) { setTree(null); setLoading(false); return; }
       setLoading(true);
       setError(null);
-      try {
-        const data = await getTree(treeId);
-        if (!cancelled) setTree(data);
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to fetch tree');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+      getTree(treeId).then((data) => { if (!cancelled) setTree(data); }).catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to fetch tree'); }).finally(() => { setLoading(false); });
     })();
     return () => { cancelled = true; };
   }, [treeId]);

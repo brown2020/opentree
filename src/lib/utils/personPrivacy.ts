@@ -16,14 +16,14 @@ export function canViewFullPerson(
   tree: TreePrivacyContext,
   person: Pick<Person, 'isLiving'>,
   userId: string | null | undefined,
-  members: Pick<TreeMember, 'userId' | 'role'>[] = []
+  members: Pick<TreeMember, 'userId' | 'accessLevel'>[] = []
 ): boolean {
   if (!person.isLiving) return true;
   if (!tree?.isPublic) return true;
   if (!userId) return false;
   if (tree.userId === userId) return true;
   const member = members.find((m) => m.userId === userId);
-  return member?.role === 'editor';
+  return member?.accessLevel === 'editor';
 }
 
 /** Strip sensitive fields from a living person record for limited viewers. */
@@ -45,7 +45,7 @@ export function getPersonForViewer(
   person: Person,
   tree: TreePrivacyContext,
   userId: string | null | undefined,
-  members: Pick<TreeMember, 'userId' | 'role'>[] = []
+  members: Pick<TreeMember, 'userId' | 'accessLevel'>[] = []
 ): Person {
   if (canViewFullPerson(tree, person, userId, members)) {
     return person;
@@ -79,7 +79,7 @@ export function preparePersonsForViewer(
   persons: Person[],
   tree: TreePrivacyContext,
   userId: string | null | undefined,
-  members: Pick<TreeMember, 'userId' | 'role'>[] = []
+  members: Pick<TreeMember, 'userId' | 'accessLevel'>[] = []
 ): Person[] {
   return persons.map((person) =>
     getPersonForViewer(person, tree, userId, members)

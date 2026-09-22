@@ -170,6 +170,7 @@ export function DocumentList({ treeId, personId, treeOwnerId }: DocumentListProp
                     href={doc.url}
                     target="_blank"
                     rel="noopener noreferrer"
+                    aria-label={`Download ${doc.name || 'document'}`}
                     className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"
                   >
                     <svg
@@ -187,6 +188,8 @@ export function DocumentList({ treeId, personId, treeOwnerId }: DocumentListProp
                     </svg>
                   </a>
                   <button
+                    type="button"
+                    aria-label={`Delete ${doc.name || 'document'}`}
                     onClick={() => setDeleteDoc(doc)}
                     className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-red-500 dark:hover:bg-gray-700"
                   >
@@ -247,10 +250,10 @@ export function DocumentList({ treeId, personId, treeOwnerId }: DocumentListProp
           />
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-200">
+            <label htmlFor="DocumentList-field-4" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-200">
               Document Type
             </label>
-            <select
+            <select id="DocumentList-field-4"
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
               {...register('type')}
             >
@@ -263,10 +266,10 @@ export function DocumentList({ treeId, personId, treeOwnerId }: DocumentListProp
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-200">
+            <label htmlFor="DocumentList-field-5" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-200">
               Description
             </label>
-            <textarea
+            <textarea id="DocumentList-field-5"
               rows={2}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
               {...register('description')}

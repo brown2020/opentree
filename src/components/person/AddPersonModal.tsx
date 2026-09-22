@@ -1,5 +1,7 @@
 'use client';
 
+const EMPTY_LIST: never[] = [];
+
 import { Modal } from '@/components/ui/Modal';
 import { PersonForm } from './PersonForm';
 import type { Person } from '@/lib/types';
@@ -20,7 +22,7 @@ export function AddPersonModal({
   onSubmit,
   loading,
   treeId,
-  existingPersons = [],
+  existingPersons = EMPTY_LIST,
 }: AddPersonModalProps) {
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Add Person to Tree" size="lg">

@@ -33,14 +33,7 @@ export function useActivity(treeId: string | null, maxItems = 20) {
     (async () => {
       if (!treeId) { setActivities([]); setLoading(false); return; }
       setLoading(true);
-      try {
-        const data = await getTreeActivity(treeId, maxItems);
-        if (!cancelled) setActivities(data);
-      } catch {
-        // Activity feed is non-critical
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+      getTreeActivity(treeId, maxItems).then((data) => { if (!cancelled) setActivities(data); }).catch(() => {}).finally(() => { setLoading(false); });
     })();
     return () => { cancelled = true; };
   }, [treeId, maxItems, activityBump]);

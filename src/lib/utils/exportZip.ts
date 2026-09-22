@@ -39,23 +39,23 @@ export async function exportTreeAsZip(
             collection(db, 'trees', treeId, 'persons', person.id, 'photos')
           );
 
-          for (const photoDoc of photosSnapshot.docs) {
-            const data = { id: photoDoc.id, ...photoDoc.data() } as Photo;
-            if (!data.url) continue;
-
-            try {
-              const response = await fetch(data.url);
-              if (!response.ok) continue;
-
-              const blob = await response.blob();
-              const fileName = data.caption
-                ? `${data.caption.replace(/[^a-zA-Z0-9_-]/g, '_')}_${photoDoc.id}.jpg`
-                : `photo_${photoDoc.id}.jpg`;
-              zip.file(`photos/${personFolder}/${fileName}`, blob);
-            } catch {
-              // Skip files that can't be fetched
-            }
-          }
+          await Promise.all(
+            photosSnapshot.docs.map(async (photoDoc) => {
+              const data = { id: photoDoc.id, ...photoDoc.data() } as Photo;
+              if (!data.url) return;
+              try {
+                const response = await fetch(data.url);
+                if (!response.ok) return;
+                const blob = await response.blob();
+                const fileName = data.caption
+                  ? `${data.caption.replace(/[^a-zA-Z0-9_-]/g, '_')}_${photoDoc.id}.jpg`
+                  : `photo_${photoDoc.id}.jpg`;
+                zip.file(`photos/${personFolder}/${fileName}`, blob);
+              } catch {
+                // Skip files that can't be fetched
+              }
+            })
+          );
         } catch {
           // Skip if subcollection doesn't exist
         }
@@ -70,24 +70,24 @@ export async function exportTreeAsZip(
             collection(db, 'trees', treeId, 'persons', person.id, 'documents')
           );
 
-          for (const docItem of docsSnapshot.docs) {
-            const data = { id: docItem.id, ...docItem.data() } as DocType;
-            if (!data.url) continue;
-
-            try {
-              const response = await fetch(data.url);
-              if (!response.ok) continue;
-
-              const blob = await response.blob();
-              const ext = data.mimeType === 'application/pdf' ? 'pdf' : 'jpg';
-              const fileName = data.name
-                ? `${data.name.replace(/[^a-zA-Z0-9_.-]/g, '_')}`
-                : `document_${docItem.id}.${ext}`;
-              zip.file(`documents/${personFolder}/${fileName}`, blob);
-            } catch {
-              // Skip files that can't be fetched
-            }
-          }
+          await Promise.all(
+            docsSnapshot.docs.map(async (docItem) => {
+              const data = { id: docItem.id, ...docItem.data() } as DocType;
+              if (!data.url) return;
+              try {
+                const response = await fetch(data.url);
+                if (!response.ok) return;
+                const blob = await response.blob();
+                const ext = data.mimeType === 'application/pdf' ? 'pdf' : 'jpg';
+                const fileName = data.name
+                  ? `${data.name.replace(/[^a-zA-Z0-9_.-]/g, '_')}`
+                  : `document_${docItem.id}.${ext}`;
+                zip.file(`documents/${personFolder}/${fileName}`, blob);
+              } catch {
+                // Skip files that can't be fetched
+              }
+            })
+          );
         } catch {
           // Skip if subcollection doesn't exist
         }
@@ -101,11 +101,15 @@ export async function exportTreeAsZip(
   const content = await zip.generateAsync({ type: 'blob' });
 
   const safeName = treeName.replace(/[^a-zA-Z0-9_-]/g, '_') || 'family_tree';
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(content);
-  link.download = `${safeName}_export.zip`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(link.href);
+  const objectUrl = URL.createObjectURL(content);
+  try {
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = `${safeName}_export.zip`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
 }

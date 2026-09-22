@@ -43,9 +43,9 @@ const deceasedPerson: Person = {
   deathDate: Timestamp.fromDate(new Date('2020-01-01')),
 };
 
-const members: Pick<TreeMember, 'userId' | 'role'>[] = [
-  { userId: 'editor-1', role: 'editor' },
-  { userId: 'viewer-1', role: 'viewer' },
+const members: Pick<TreeMember, 'userId' | 'accessLevel'>[] = [
+  { userId: 'editor-1', accessLevel: 'editor' },
+  { userId: 'viewer-1', accessLevel: 'viewer' },
 ];
 
 describe('canViewFullPerson', () => {

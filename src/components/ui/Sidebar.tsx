@@ -43,8 +43,10 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   return (
     <>
       {isOpen && (
-        <div
+        <button
+          type="button"
           className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          aria-label="Close navigation"
           onClick={onClose}
         />
       )}
@@ -67,7 +69,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             OpenTree
           </Link>
           <button
+            type="button"
             onClick={onClose}
+            aria-label="Close navigation"
             className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-500 lg:hidden dark:hover:bg-gray-700"
           >
             <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

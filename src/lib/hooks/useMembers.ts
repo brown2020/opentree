@@ -53,34 +53,35 @@ export function useMembers(treeId: string | null) {
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      if (!treeId) {
-        setMembers([]);
-        setInvites([]);
-        setLoading(false);
-        return;
-      }
-      setLoading(true);
-      setError(null);
-      try {
-        const tree = await getTree(treeId);
+    if (!treeId) {
+      setMembers([]);
+      setInvites([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    getTree(treeId)
+      .then((tree) => {
         const canReadInvites = !!user && tree?.userId === user.uid;
-        const [memberData, inviteData] = await Promise.all([
+        return Promise.all([
           getTreeMembers(treeId),
           canReadInvites ? getTreeInvites(treeId) : Promise.resolve([]),
         ]);
-        if (!cancelled) {
-          setMembers(memberData);
-          setInvites(inviteData);
-        }
-      } catch (err) {
+      })
+      .then(([memberData, inviteData]) => {
+        if (cancelled) return;
+        setMembers(memberData);
+        setInvites(inviteData);
+      })
+      .catch((err) => {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : 'Failed to fetch members');
         }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
+      })
+      .finally(() => {
+        setLoading(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -88,14 +89,14 @@ export function useMembers(treeId: string | null) {
 
   const add = async (
     email: string,
-    role: MemberRole
+    accessLevel: MemberRole
   ): Promise<AddTreeMemberResult> => {
     if (!treeId || !user) {
       return { success: false, error: 'Not authenticated' };
     }
 
     try {
-      const result = await addTreeMember(treeId, email, role, user.uid);
+      const result = await addTreeMember(treeId, email, accessLevel, user.uid);
       if (result.success) {
         await fetchMembers();
         if (result.pending) {
@@ -110,7 +111,7 @@ export function useMembers(treeId: string | null) {
             treeId,
             { userId: user.uid, userDisplayName: user.displayName },
             'member_added',
-            `Added ${email.trim().toLowerCase()} as ${role}`
+            `Added ${email.trim().toLowerCase()} as ${accessLevel}`
           );
         }
       }
@@ -164,17 +165,17 @@ export function useMembers(treeId: string | null) {
 
   const updateRole = async (
     userId: string,
-    role: MemberRole
+    accessLevel: MemberRole
   ): Promise<boolean> => {
     if (!treeId) return false;
 
     try {
-      await updateMemberRole(treeId, userId, role);
+      await updateMemberRole(treeId, userId, accessLevel);
       await fetchMembers();
       return true;
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : 'Failed to update role'
+        err instanceof Error ? err.message : 'Failed to update access level'
       );
       return false;
     }

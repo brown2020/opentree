@@ -7,23 +7,22 @@ export const AUTH_COOKIE = 'ot-auth';
 export const AUTH_COOKIE_VERIFIED = '1';
 export const AUTH_COOKIE_PENDING = 'pending';
 
-const ONE_WEEK_SECONDS = 60 * 60 * 24 * 7;
-const ONE_DAY_SECONDS = 60 * 60 * 24;
-
-/** Sync a lightweight session marker cookie for middleware route checks. */
+/** Sync session marker via HttpOnly cookie API (proxy route gate). */
 export function syncAuthSessionCookie(
   user: User | null,
   emailVerified: boolean
 ): void {
-  if (typeof document === 'undefined') return;
+  if (typeof window === 'undefined') return;
 
-  if (user && emailVerified) {
-    document.cookie = `${AUTH_COOKIE}=${AUTH_COOKIE_VERIFIED}; path=/; max-age=${ONE_WEEK_SECONDS}; SameSite=Lax`;
-  } else if (user) {
-    document.cookie = `${AUTH_COOKIE}=${AUTH_COOKIE_PENDING}; path=/; max-age=${ONE_DAY_SECONDS}; SameSite=Lax`;
-  } else {
-    document.cookie = `${AUTH_COOKIE}=; path=/; max-age=0; SameSite=Lax`;
-  }
+  const state = !user ? 'cleared' : emailVerified ? 'verified' : 'pending';
+  void fetch('/api/session', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    credentials: 'same-origin',
+    body: JSON.stringify({ state }),
+  }).catch(() => {
+    /* non-blocking; proxy may lag until next navigation */
+  });
 }
 
 /** Wait until Firebase auth state has hydrated the Zustand store with a user. */

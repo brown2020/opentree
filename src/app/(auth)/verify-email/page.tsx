@@ -22,16 +22,6 @@ export default function VerifyEmailPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Redirect if already verified or not logged in
-  useEffect(() => {
-    if (initialized) {
-      if (!user) {
-        router.replace('/login');
-      } else if (emailVerified) {
-        router.replace('/');
-      }
-    }
-  }, [initialized, user, emailVerified, router]);
 
   const handleResendEmail = async () => {
     setSending(true);

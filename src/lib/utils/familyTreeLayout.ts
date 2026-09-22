@@ -184,11 +184,12 @@ function orderGeneration(
   if (ids.length <= 1) return ids;
 
   // Group couples together
+  const idSet = new Set(ids);
   const placed = new Set<string>();
   const ordered: string[] = [];
 
   // If root person is in this generation, start with them
-  if (gen === 0 && ids.includes(rootId)) {
+  if (gen === 0 && idSet.has(rootId)) {
     placed.add(rootId);
     ordered.push(rootId);
 
@@ -196,7 +197,7 @@ function orderGeneration(
     const rootAdj = adj.get(rootId);
     if (rootAdj) {
       for (const spouseId of rootAdj.spouses) {
-        if (ids.includes(spouseId) && !placed.has(spouseId)) {
+        if (idSet.has(spouseId) && !placed.has(spouseId)) {
           placed.add(spouseId);
           ordered.push(spouseId);
         }
@@ -213,7 +214,7 @@ function orderGeneration(
     const entry = adj.get(id);
     if (entry) {
       for (const spouseId of entry.spouses) {
-        if (ids.includes(spouseId) && !placed.has(spouseId)) {
+        if (idSet.has(spouseId) && !placed.has(spouseId)) {
           placed.add(spouseId);
           ordered.push(spouseId);
         }

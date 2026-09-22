@@ -7,7 +7,7 @@ export interface TreeMember {
   userId: string;
   email: string;
   displayName: string | null;
-  role: MemberRole;
+  accessLevel: MemberRole;
   addedBy: string;
   addedAt: Timestamp;
 }
@@ -15,7 +15,7 @@ export interface TreeMember {
 export interface TreeInvite {
   id: string;
   email: string;
-  role: MemberRole;
+  accessLevel: MemberRole;
   addedBy: string;
   addedAt: Timestamp;
 }

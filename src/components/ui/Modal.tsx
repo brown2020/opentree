@@ -28,45 +28,48 @@ export function Modal({
   footer,
   size = 'md',
 }: ModalProps) {
-  const overlayRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  const dialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
-    if (isOpen) {
-      document.addEventListener('keydown', handleEscape);
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (isOpen && !dialog.open) {
+      dialog.showModal();
       document.body.style.overflow = 'hidden';
+    } else if (!isOpen && dialog.open) {
+      dialog.close();
+      document.body.style.overflow = 'unset';
     }
-
     return () => {
-      document.removeEventListener('keydown', handleEscape);
       document.body.style.overflow = 'unset';
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const handleOverlayClick = (e: React.MouseEvent) => {
-    if (e.target === overlayRef.current) onClose();
-  };
-
   return (
-    <div
-      ref={overlayRef}
-      onClick={handleOverlayClick}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+    <dialog
+      ref={dialogRef}
+      aria-label={title}
+      className="fixed inset-0 z-50 m-auto max-h-[90vh] w-[calc(100%-2rem)] overflow-visible rounded-xl border-0 bg-transparent p-0 backdrop:bg-black/50 open:flex open:items-center open:justify-center"
+      onClose={() => onCloseRef.current()}
     >
       <div
-        className={`w-full ${sizeClasses[size]} max-h-[90vh] overflow-y-auto rounded-xl bg-white shadow-xl dark:bg-gray-800`}
+        className={`relative z-10 w-full ${sizeClasses[size]} max-h-[90vh] overflow-y-auto rounded-xl bg-white shadow-xl dark:bg-gray-800`}
       >
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-6 py-4 dark:border-gray-700 dark:bg-gray-800">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             {title}
           </h2>
           <button
-            onClick={onClose}
+            type="button"
+            onClick={() => onCloseRef.current()}
+            aria-label="Close dialog"
             className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-500 dark:hover:bg-gray-700"
           >
             <svg
@@ -91,7 +94,7 @@ export function Modal({
           </div>
         )}
       </div>
-    </div>
+    </dialog>
   );
 }
 

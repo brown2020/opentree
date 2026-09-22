@@ -31,9 +31,7 @@ export function PhotoGallery({ treeId, personId, treeOwnerId }: PhotoGalleryProp
   const handleUpload = async (files: File[]) => {
     setUploading(true);
     try {
-      for (const file of files) {
-        await upload(file);
-      }
+      await Promise.all(files.map((file) => upload(file)));
     } catch (error) {
       console.error('Failed to upload photo:', error);
     } finally {
@@ -104,9 +102,11 @@ export function PhotoGallery({ treeId, personId, treeOwnerId }: PhotoGalleryProp
       ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
           {photos.map((photo) => (
-            <div
+            <button
+              type="button"
               key={photo.id}
-              className="group relative aspect-square cursor-pointer overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800"
+              aria-label={photo.caption || 'View photo'}
+              className="group relative aspect-square cursor-pointer overflow-hidden rounded-lg bg-gray-100 text-left dark:bg-gray-800"
               onClick={() => setSelectedPhoto(photo)}
             >
               <Image
@@ -122,19 +122,24 @@ export function PhotoGallery({ treeId, personId, treeOwnerId }: PhotoGalleryProp
                 </div>
               )}
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-            </div>
+            </button>
           ))}
         </div>
       )}
 
       {/* Photo lightbox */}
       {selectedPhoto && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
-          onClick={() => setSelectedPhoto(null)}
-        >
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
           <button
-            className="absolute right-4 top-4 text-white hover:text-gray-300"
+            type="button"
+            className="absolute inset-0 cursor-default bg-transparent"
+            aria-label="Close photo"
+            onClick={() => setSelectedPhoto(null)}
+          />
+          <button
+            type="button"
+            aria-label="Close photo"
+            className="absolute right-4 top-4 z-10 text-white hover:text-gray-300"
             onClick={() => setSelectedPhoto(null)}
           >
             <svg

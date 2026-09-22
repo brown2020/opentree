@@ -61,28 +61,37 @@ export function useDocuments(
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      if (!treeId || !personId) { setDocuments([]); setLoading(false); return; }
-      setLoading(true);
-      setError(null);
-      try {
-        const q = query(
-          collection(db, 'trees', treeId, 'persons', personId, 'documents'),
-          orderBy('createdAt', 'desc')
-        );
-        const snapshot = await getDocs(q);
+    if (!treeId || !personId) {
+      setDocuments([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    const q = query(
+      collection(db, 'trees', treeId, 'persons', personId, 'documents'),
+      orderBy('createdAt', 'desc')
+    );
+    getDocs(q)
+      .then((snapshot) => {
+        if (cancelled) return;
         const data = snapshot.docs.map((d) => ({
           id: d.id,
           ...d.data(),
         })) as Document[];
-        if (!cancelled) setDocuments(data);
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to fetch documents');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
+        setDocuments(data);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Failed to fetch documents');
+        }
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [treeId, personId]);
 
   const upload = async (

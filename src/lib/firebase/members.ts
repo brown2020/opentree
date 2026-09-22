@@ -16,6 +16,17 @@ import { batchDeleteDocs } from './firestore';
 import { inviteDocIdFromEmail, normalizeInviteEmail } from './inviteEmail';
 import type { TreeMember, TreeInvite, MemberRole } from '@/lib/types';
 
+function normalizeMemberDoc(id: string, data: Record<string, unknown>): TreeMember {
+  const accessLevel = (data.accessLevel ?? data.role) as MemberRole;
+  return { id, ...data, accessLevel } as TreeMember;
+}
+
+function normalizeInviteDoc(id: string, data: Record<string, unknown>): TreeInvite {
+  const accessLevel = (data.accessLevel ?? data.role) as MemberRole;
+  return { id, ...data, accessLevel } as TreeInvite;
+}
+
+
 export type AddTreeMemberResult = {
   success: boolean;
   pending?: boolean;
@@ -31,8 +42,8 @@ export async function getTreeMembers(
   const snapshot = await getDocs(
     collection(db, 'trees', treeId, 'members')
   );
-  return snapshot.docs.map(
-    (d) => ({ id: d.id, ...d.data() }) as TreeMember
+  return snapshot.docs.map((d) =>
+    normalizeMemberDoc(d.id, d.data() as Record<string, unknown>)
   );
 }
 
@@ -43,8 +54,8 @@ export async function getTreeInvites(treeId: string): Promise<TreeInvite[]> {
   const snapshot = await getDocs(
     collection(db, 'trees', treeId, 'invites')
   );
-  return snapshot.docs.map(
-    (d) => ({ id: d.id, ...d.data() }) as TreeInvite
+  return snapshot.docs.map((d) =>
+    normalizeInviteDoc(d.id, d.data() as Record<string, unknown>)
   );
 }
 
@@ -73,7 +84,7 @@ async function addMemberToTree(
   userId: string,
   email: string,
   displayName: string | null,
-  role: MemberRole,
+  accessLevel: MemberRole,
   addedBy: string
 ): Promise<void> {
   const batch = writeBatch(db);
@@ -82,7 +93,7 @@ async function addMemberToTree(
     userId,
     email,
     displayName,
-    role,
+    accessLevel,
     addedBy,
     addedAt: serverTimestamp(),
   });
@@ -100,7 +111,7 @@ async function addMemberToTree(
 export async function addTreeMember(
   treeId: string,
   email: string,
-  role: MemberRole,
+  accessLevel: MemberRole,
   addedBy: string
 ): Promise<AddTreeMemberResult> {
   const normalizedEmail = normalizeInviteEmail(email);
@@ -125,7 +136,7 @@ export async function addTreeMember(
     const batch = writeBatch(db);
     batch.set(inviteRef, {
       email: normalizedEmail,
-      role,
+      accessLevel,
       addedBy,
       addedAt: serverTimestamp(),
     });
@@ -151,7 +162,7 @@ export async function addTreeMember(
     user.uid,
     normalizedEmail,
     user.displayName,
-    role,
+    accessLevel,
     addedBy
   );
 
@@ -246,7 +257,7 @@ export async function resolvePendingInvitesForUser(
       userId,
       email: normalizedEmail,
       displayName,
-      role: invite.role,
+      accessLevel: invite.accessLevel,
       addedBy: invite.addedBy,
       addedAt: serverTimestamp(),
     });
@@ -279,15 +290,15 @@ export async function removeTreeMember(
 }
 
 /**
- * Update a member's role.
+ * Update a member's access level.
  */
 export async function updateMemberRole(
   treeId: string,
   userId: string,
-  role: MemberRole
+  accessLevel: MemberRole
 ): Promise<void> {
   const batch = writeBatch(db);
-  batch.update(doc(db, 'trees', treeId, 'members', userId), { role });
+  batch.update(doc(db, 'trees', treeId, 'members', userId), { accessLevel });
   await batch.commit();
 }
 
