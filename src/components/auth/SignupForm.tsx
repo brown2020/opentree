@@ -10,6 +10,7 @@ import { useAuthStore } from '@/lib/stores/authStore';
 import { signupSchema, type SignupFormData } from '@/lib/utils/validation';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { SocialLoginButtons } from './SocialLoginButtons';
 
 export function SignupForm() {
@@ -90,17 +91,15 @@ export function SignupForm() {
           {...register('email')}
         />
 
-        <Input
+        <PasswordInput
           label="Password"
-          type="password"
           autoComplete="new-password"
           error={errors.password?.message}
           {...register('password')}
         />
 
-        <Input
+        <PasswordInput
           label="Confirm Password"
-          type="password"
           autoComplete="new-password"
           error={errors.confirmPassword?.message}
           {...register('confirmPassword')}

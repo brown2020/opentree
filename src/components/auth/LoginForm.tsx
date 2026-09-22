@@ -10,6 +10,7 @@ import { navigateAfterSignIn } from '@/lib/auth/session';
 import { loginSchema, type LoginFormData } from '@/lib/utils/validation';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { SocialLoginButtons } from './SocialLoginButtons';
 
 export function LoginForm() {
@@ -138,9 +139,8 @@ export function LoginForm() {
           {...register('email')}
         />
 
-        <Input
+        <PasswordInput
           label="Password"
-          type="password"
           autoComplete="current-password"
           error={errors.password?.message}
           {...register('password')}
