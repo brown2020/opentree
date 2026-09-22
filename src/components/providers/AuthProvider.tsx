@@ -3,7 +3,7 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { subscribeToAuthChanges, isUserEmailVerified } from '@/lib/firebase/auth';
 import { resolvePendingInvitesForUser } from '@/lib/firebase/members';
-import { syncAuthSessionCookie } from '@/lib/auth/session';
+import { syncAuthSessionCookieSafe } from '@/lib/auth/session';
 import { useAuthStore } from '@/lib/stores/authStore';
 import type { User } from '@/lib/types';
 
@@ -27,7 +27,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const verified = isUserEmailVerified(firebaseUser);
         setUser(appUser);
         setEmailVerified(verified);
-        syncAuthSessionCookie(appUser, verified);
+        syncAuthSessionCookieSafe(appUser, verified);
 
         if (verified && firebaseUser.email && !resolvingInvitesRef.current) {
           resolvingInvitesRef.current = true;
@@ -46,7 +46,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       } else {
         setUser(null);
         setEmailVerified(false);
-        syncAuthSessionCookie(null, false);
+        syncAuthSessionCookieSafe(null, false);
       }
       setInitialized(true);
     });

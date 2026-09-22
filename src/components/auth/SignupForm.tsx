@@ -4,16 +4,15 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { signUp } from '@/lib/firebase/auth';
-import { waitForAuthHydration } from '@/lib/auth/session';
+import { syncAuthSessionCookie, waitForAuthHydration } from '@/lib/auth/session';
+import { useAuthStore } from '@/lib/stores/authStore';
 import { signupSchema, type SignupFormData } from '@/lib/utils/validation';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { SocialLoginButtons } from './SocialLoginButtons';
 
 export function SignupForm() {
-  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
 
   const {
@@ -33,7 +32,13 @@ export function SignupForm() {
       } catch {
         // AuthProvider may still be syncing.
       }
-      router.push('/verify-email');
+      const { user } = useAuthStore.getState();
+      try {
+        await syncAuthSessionCookie(user, false);
+      } catch {
+        // Still navigate; GuestGuard / proxy will recover.
+      }
+      window.location.assign('/verify-email');
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Failed to create account';

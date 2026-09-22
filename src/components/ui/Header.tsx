@@ -1,10 +1,9 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { signOut } from '@/lib/firebase/auth';
+import { completeClientSignOut } from '@/lib/auth/session';
 import { useAuthStore } from '@/lib/stores/authStore';
 
 interface HeaderProps {
@@ -12,18 +11,18 @@ interface HeaderProps {
 }
 
 export function Header({ onMenuClick }: HeaderProps) {
-  const router = useRouter();
   const { user } = useAuthStore();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const handleSignOut = async () => {
     try {
-      await signOut();
+      await completeClientSignOut();
     } catch (error) {
       console.error('Failed to sign out:', error);
+      // Last resort: force login so the UI never sticks on a spinner.
+      window.location.assign('/login');
     }
-    router.push('/login');
   };
 
   const initials = user?.displayName

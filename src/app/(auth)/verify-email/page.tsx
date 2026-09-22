@@ -1,27 +1,49 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useRef } from 'react';
 import { useAuthStore } from '@/lib/stores/authStore';
 import {
   sendVerificationEmail,
   refreshUserEmailVerified,
-  signOut,
   getCurrentUser,
 } from '@/lib/firebase/auth';
 import { resolvePendingInvitesForUser } from '@/lib/firebase/members';
-import { syncAuthSessionCookie } from '@/lib/auth/session';
+import {
+  syncAuthSessionCookie,
+  completeClientSignOut,
+} from '@/lib/auth/session';
 import { Button } from '@/components/ui/Button';
 import { FullPageLoader } from '@/components/ui/LoadingSpinner';
 
 export default function VerifyEmailPage() {
-  const router = useRouter();
   const { user, emailVerified, initialized } = useAuthStore();
   const [sending, setSending] = useState(false);
   const [checking, setChecking] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const redirectingRef = useRef(false);
 
+  useEffect(() => {
+    if (!initialized || redirectingRef.current) return;
+
+    if (!user) {
+      redirectingRef.current = true;
+      window.location.replace('/login');
+      return;
+    }
+
+    if (emailVerified) {
+      redirectingRef.current = true;
+      void (async () => {
+        try {
+          await syncAuthSessionCookie(user, true);
+        } catch {
+          /* continue */
+        }
+        window.location.replace('/');
+      })();
+    }
+  }, [initialized, user, emailVerified]);
 
   const handleResendEmail = async () => {
     setSending(true);
@@ -59,7 +81,11 @@ export default function VerifyEmailPage() {
         useAuthStore.getState().setEmailVerified(true);
         const current = useAuthStore.getState().user;
         if (current) {
-          syncAuthSessionCookie(current, true);
+          try {
+            await syncAuthSessionCookie(current, true);
+          } catch {
+            /* continue to home */
+          }
           if (current.email) {
             void resolvePendingInvitesForUser(
               current.uid,
@@ -68,7 +94,7 @@ export default function VerifyEmailPage() {
             );
           }
         }
-        router.replace('/');
+        window.location.assign('/');
       } else {
         setError('Email not yet verified. Please check your inbox and click the verification link.');
       }
@@ -80,8 +106,11 @@ export default function VerifyEmailPage() {
   };
 
   const handleSignOut = async () => {
-    await signOut();
-    router.push('/login');
+    try {
+      await completeClientSignOut();
+    } catch {
+      window.location.assign('/login');
+    }
   };
 
   if (!initialized || !user || emailVerified) {

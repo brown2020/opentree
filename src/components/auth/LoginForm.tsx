@@ -40,6 +40,12 @@ export function LoginForm() {
         setError('Invalid email or password');
       } else if (message.includes('too-many-requests')) {
         setError('Too many attempts. Please try again later.');
+      } else if (
+        message.includes('Auth hydration timeout') ||
+        message.includes('Session sync') ||
+        message.includes('no user session')
+      ) {
+        setError('Sign-in is taking too long. Please try again.');
       } else {
         setError(message);
       }
