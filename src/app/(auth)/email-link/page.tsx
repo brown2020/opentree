@@ -161,7 +161,7 @@ export default function EmailLinkPage() {
             <button
               type="button"
               onClick={() => router.push('/login')}
-              className="font-medium text-emerald-600 hover:text-emerald-500"
+              className="font-medium text-emerald-700 hover:text-emerald-700"
             >
               Back to login
             </button>

@@ -54,7 +54,7 @@ export default function ForgotPasswordPage() {
       <div className="space-y-6 text-center">
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
           <svg
-            className="h-8 w-8 text-emerald-600 dark:text-emerald-400"
+            className="h-8 w-8 text-emerald-700 dark:text-emerald-400"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -84,7 +84,7 @@ export default function ForgotPasswordPage() {
           </Link>
           <button
             onClick={() => setSubmitted(false)}
-            className="text-sm text-emerald-600 hover:text-emerald-500"
+            className="text-sm text-emerald-700 hover:text-emerald-700"
           >
             Try a different email
           </button>
@@ -125,7 +125,7 @@ export default function ForgotPasswordPage() {
           Remember your password?{' '}
           <Link
             href="/login"
-            className="font-medium text-emerald-600 hover:text-emerald-500"
+            className="font-medium text-emerald-700 hover:text-emerald-700"
           >
             Sign in
           </Link>

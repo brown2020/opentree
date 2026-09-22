@@ -78,7 +78,7 @@ export function LoginForm() {
       <div className="space-y-4 text-center">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
           <svg
-            className="h-6 w-6 text-emerald-600 dark:text-emerald-400"
+            className="h-6 w-6 text-emerald-700 dark:text-emerald-400"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -155,13 +155,13 @@ export function LoginForm() {
             type="button"
             onClick={handleSendEmailLink}
             disabled={sendingEmailLink}
-            className="text-emerald-600 hover:text-emerald-500 disabled:opacity-50"
+            className="text-emerald-700 hover:text-emerald-700 disabled:opacity-50"
           >
             {sendingEmailLink ? 'Sending...' : 'Send me a sign-in link'}
           </button>
           <Link
             href="/forgot-password"
-            className="text-emerald-600 hover:text-emerald-500"
+            className="text-emerald-700 hover:text-emerald-700"
           >
             Forgot password?
           </Link>
@@ -171,7 +171,7 @@ export function LoginForm() {
           Don&apos;t have an account?{' '}
           <Link
             href="/signup"
-            className="font-medium text-emerald-600 hover:text-emerald-500"
+            className="font-medium text-emerald-700 hover:text-emerald-700"
           >
             Sign up
           </Link>

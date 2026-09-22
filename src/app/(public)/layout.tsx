@@ -13,7 +13,7 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 lg:px-6">
           <Link
             href="/"
-            className="text-lg font-semibold text-emerald-600 dark:text-emerald-400"
+            className="text-lg font-semibold text-emerald-700 dark:text-emerald-400"
           >
             OpenTree
           </Link>
@@ -26,7 +26,7 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
             </Link>
             <Link
               href="/signup"
-              className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+              className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-800"
             >
               Sign up free
             </Link>

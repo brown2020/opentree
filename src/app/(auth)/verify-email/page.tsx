@@ -121,7 +121,7 @@ export default function VerifyEmailPage() {
     <div className="space-y-6 text-center">
       <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
         <svg
-          className="h-8 w-8 text-emerald-600 dark:text-emerald-400"
+          className="h-8 w-8 text-emerald-700 dark:text-emerald-400"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -153,7 +153,7 @@ export default function VerifyEmailPage() {
       </p>
 
       {message && (
-        <div className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400">
+        <div className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400">
           {message}
         </div>
       )}
