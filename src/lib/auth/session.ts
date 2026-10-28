@@ -118,6 +118,18 @@ export function waitForSignedOut(
   });
 }
 
+/**
+ * Where to send a signed-in guest after the session cookie is stored.
+ * A failed cookie write must stay put so the proxy does not bounce /login ↔ /.
+ */
+export function pathAfterSessionSync(
+  emailVerified: boolean,
+  cookieSynced: boolean
+): '/' | '/verify-email' | null {
+  if (!cookieSynced) return null;
+  return emailVerified ? '/' : '/verify-email';
+}
+
 function hardNavigate(path: string): void {
   if (typeof window === 'undefined') return;
   window.location.assign(path);

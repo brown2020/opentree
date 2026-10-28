@@ -106,6 +106,20 @@ describe('syncAuthSessionCookie', () => {
   });
 });
 
+describe('pathAfterSessionSync', () => {
+  it('stays on the auth page when the cookie was not stored', async () => {
+    const { pathAfterSessionSync } = await import('./session');
+    expect(pathAfterSessionSync(true, false)).toBeNull();
+    expect(pathAfterSessionSync(false, false)).toBeNull();
+  });
+
+  it('sends a verified session home and an unverified session to verify-email', async () => {
+    const { pathAfterSessionSync } = await import('./session');
+    expect(pathAfterSessionSync(true, true)).toBe('/');
+    expect(pathAfterSessionSync(false, true)).toBe('/verify-email');
+  });
+});
+
 describe('waitForAuthHydration', () => {
   afterEach(() => {
     vi.useRealTimers();
