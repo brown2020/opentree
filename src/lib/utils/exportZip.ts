@@ -1,7 +1,8 @@
 import JSZip from 'jszip';
 import { getDocs, collection } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
-import { exportToGedcom } from './gedcom';
+import { exportToGedcom, type GedcomExportOptions } from './gedcom';
+import { canViewFullPerson } from '@/lib/utils/personPrivacy';
 import type { Person, Relationship, Photo, Document as DocType } from '@/lib/types';
 
 /**
@@ -10,22 +11,34 @@ import type { Person, Relationship, Photo, Document as DocType } from '@/lib/typ
  * - photos/{personName}/{filename}
  * - documents/{personName}/{filename}
  */
+export function personsIncludedInFullExport(
+  persons: Person[],
+  options: GedcomExportOptions = {}
+): Person[] {
+  return persons.filter((person) =>
+    canViewFullPerson(options.tree, person, options.userId, options.members ?? [])
+  );
+}
+
 export async function exportTreeAsZip(
   treeId: string,
   treeName: string,
   persons: Person[],
-  relationships: Relationship[]
+  relationships: Relationship[],
+  options: GedcomExportOptions = {}
 ): Promise<void> {
   const zip = new JSZip();
 
-  // 1. Add GEDCOM file
-  const gedcomContent = exportToGedcom(treeName, persons, relationships);
+  // 1. Add GEDCOM file, with the same living-person redaction as a GEDCOM download.
+  const gedcomContent = exportToGedcom(treeName, persons, relationships, options);
   zip.file('tree.ged', gedcomContent);
+
+  const exportablePersons = personsIncludedInFullExport(persons, options);
 
   // 2. Collect all photos and documents from Firestore
   const mediaPromises: Promise<void>[] = [];
 
-  for (const person of persons) {
+  for (const person of exportablePersons) {
     const personFolder = `${person.firstName}_${person.lastName}`.replace(
       /[^a-zA-Z0-9_-]/g,
       '_'

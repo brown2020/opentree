@@ -105,13 +105,17 @@ export function TreeSettingsModal({
     setIsExportingZip(true);
     setExportError(null);
     try {
-      await exportTreeAsZip(tree.id, tree.name, persons, relationships);
+      await exportTreeAsZip(tree.id, tree.name, persons, relationships, {
+        tree,
+        userId: user?.uid,
+        members,
+      });
     } catch (err) {
       setExportError(err instanceof Error ? err.message : 'Failed to export ZIP');
     } finally {
       setIsExportingZip(false);
     }
-  }, [tree.id, tree.name, persons, relationships]);
+  }, [tree, persons, relationships, members, user]);
 
   const handleImportFileSelect = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
