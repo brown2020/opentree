@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/Input';
 import type { Person, Relationship, RelationshipType } from '@/lib/types';
 import { timestampToDate } from '@/lib/firebase/firestore';
 import { buildAdjacencyMap } from '@/lib/firebase/relationships';
+import { relationshipCycleMessage } from '@/lib/utils/relationshipCycles';
 
 interface AddRelationshipModalProps {
   isOpen: boolean;
@@ -90,17 +91,15 @@ export function AddRelationshipModal({
       }
     }
 
-    // Check self-ancestor loop: make sure adding this parent doesn't create a cycle
-    if (action === 'add-parent') {
-      if (isAncestor(selectedPersonId, person.id, adj)) {
-        return `Cannot add: ${selected.firstName} is already a descendant of ${person.firstName}. This would create a loop.`;
-      }
-    }
-    if (action === 'add-child') {
-      if (isAncestor(person.id, selectedPersonId, adj)) {
-        return `Cannot add: ${person.firstName} is already a descendant of ${selected.firstName}. This would create a loop.`;
-      }
-    }
+    const cycleMessage = relationshipCycleMessage({
+      action,
+      personId: person.id,
+      personName: person.firstName,
+      selectedId: selectedPersonId,
+      selectedName: selected.firstName,
+      adj,
+    });
+    if (cycleMessage) return cycleMessage;
 
     return null;
   }, [selectedPersonId, action, person, allPersons, adj]);
@@ -313,32 +312,4 @@ export function AddRelationshipModal({
       </div>
     </Modal>
   );
-}
-
-/**
- * Check if `personId` is an ancestor of `targetId` (would create a cycle).
- */
-function isAncestor(
-  personId: string,
-  targetId: string,
-  adj: ReturnType<typeof buildAdjacencyMap>
-): boolean {
-  const visited = new Set<string>();
-  const queue = [targetId];
-
-  while (queue.length > 0) {
-    const current = queue.shift()!;
-    if (visited.has(current)) continue;
-    visited.add(current);
-
-    const entry = adj.get(current);
-    if (!entry) continue;
-
-    for (const parentId of entry.parents) {
-      if (parentId === personId) return true;
-      if (!visited.has(parentId)) queue.push(parentId);
-    }
-  }
-
-  return false;
 }
