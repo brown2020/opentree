@@ -99,7 +99,7 @@ export function TreeSettingsModal({
     } finally {
       setIsExporting(false);
     }
-  }, [tree, persons, relationships, members, user?.uid]);
+  }, [tree, persons, relationships, members, user]);
 
   const handleExportZip = useCallback(async () => {
     setIsExportingZip(true);
