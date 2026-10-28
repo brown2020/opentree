@@ -21,7 +21,7 @@ export default function PublicTreePage() {
   const treeId = params.treeId as string;
 
   const { tree, loading: treeLoading, error: treeError } = useTreeDetails(treeId);
-  const { loading: personsLoading } = usePersons(treeId);
+  const { loading: personsLoading, error: personsError } = usePersons(treeId);
   const { relationships, loading: relsLoading } = useRelationships(treeId);
   const { persons, selectedPersonId, setSelectedPersonId } = useTreeStore();
 
@@ -45,7 +45,7 @@ export default function PublicTreePage() {
   };
 
   if (treeLoading || personsLoading || relsLoading) return <PublicTreeLoading />;
-  if (!tree || treeError) return <PublicTreeNotFound />;
+  if (!tree || treeError || personsError) return <PublicTreeNotFound />;
   if (!tree.isPublic) return <PublicTreePrivate />;
 
   return (

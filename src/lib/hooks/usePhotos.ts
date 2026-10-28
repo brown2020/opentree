@@ -14,6 +14,7 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
+import { RESTRICTED_PROFILE_ID } from '@/lib/firebase/personRecords';
 import { uploadPhoto, deleteFile } from '@/lib/firebase/storage';
 import { logTreeActivity } from '@/lib/firebase/activity';
 import { useAuth } from './useAuth';
@@ -214,12 +215,14 @@ export function usePhotos(
         { isProfilePhoto: true }
       );
 
-      // Update person's profilePhotoUrl
+      // Profile photo URL is restricted so public person docs stay name-only.
       const photo = photos.find((p) => p.id === photoId);
       if (photo) {
-        batch.update(doc(db, 'trees', treeId, 'persons', personId), {
-          profilePhotoUrl: photo.url,
-        });
+        batch.set(
+          doc(db, 'trees', treeId, 'persons', personId, 'restricted', RESTRICTED_PROFILE_ID),
+          { profilePhotoUrl: photo.url, updatedAt: serverTimestamp() },
+          { merge: true }
+        );
       }
 
       await batch.commit();

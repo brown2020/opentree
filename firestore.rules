@@ -41,12 +41,18 @@ service cloud.firestore {
     // ── Trees ─────────────────────────────────────────────────────
     match /trees/{treeId} {
 
-      // Read: public trees for anyone; private trees for owner/members only
-      allow read: if resource.data.isPublic == true
+      // get by id: public trees for anyone; private trees for owner/members.
+      // list: owner and members only, so isPublic cannot be used to enumerate every public tree.
+      allow get: if resource.data.isPublic == true
         || (isAuthenticated() && (
           resource.data.userId == request.auth.uid
           || isMember(resource)
         ));
+
+      allow list: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid
+        || isMember(resource)
+      );
 
       // Create: authenticated user, must set themselves as owner
       allow create: if isAuthenticated()
@@ -177,42 +183,60 @@ service cloud.firestore {
       }
 
       // ── Persons subcollection ─────────────────────────────────
+      // Public documents store name, gender, and isLiving only.
+      // Dates, places, bio, and photo URL live in restricted/profile.
       match /persons/{personId} {
-        allow read: if canAccessTree(treeId);
+        allow read: if canViewSensitive(treeId)
+          || (canAccessTree(treeId) && (
+            resource.data.isLiving == false
+            || !personHasSensitiveFields(resource.data)
+          ));
 
         allow create: if isAuthenticated()
           && canEditTree(treeId)
-          && request.resource.data.keys().hasAll(['firstName', 'lastName', 'gender', 'isLiving', 'createdAt', 'updatedAt'])
-          && request.resource.data.firstName is string
-          && request.resource.data.firstName.size() >= 1
-          && request.resource.data.firstName.size() <= 100
-          && request.resource.data.lastName is string
-          && request.resource.data.lastName.size() >= 1
-          && request.resource.data.lastName.size() <= 100
-          && request.resource.data.gender in ['male', 'female', 'other', 'unknown']
-          && request.resource.data.isLiving is bool;
+          && request.resource.data.keys().hasOnly(['firstName', 'lastName', 'gender', 'isLiving', 'createdAt', 'updatedAt'])
+          && validPublicPerson(request.resource.data);
 
         allow update: if isAuthenticated()
           && canEditTree(treeId)
-          && request.resource.data.diff(resource.data).affectedKeys()
-              .hasOnly([
-                'firstName', 'lastName', 'middleName', 'maidenName', 'gender',
-                'birthDate', 'birthPlace', 'deathDate', 'deathPlace', 'isLiving',
-                'profilePhotoUrl', 'bio', 'updatedAt'
+          && (
+            (
+              request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['firstName', 'lastName', 'gender', 'isLiving', 'updatedAt'])
+              && validPublicPerson(request.resource.data)
+              && !personHasSensitiveFields(request.resource.data)
+            )
+            || (
+              request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                'middleName', 'maidenName', 'birthDate', 'birthPlace',
+                'deathDate', 'deathPlace', 'bio', 'profilePhotoUrl', 'updatedAt'
               ])
-          && request.resource.data.firstName is string
-          && request.resource.data.firstName.size() >= 1
-          && request.resource.data.firstName.size() <= 100
-          && request.resource.data.lastName is string
-          && request.resource.data.lastName.size() >= 1
-          && request.resource.data.lastName.size() <= 100
-          && request.resource.data.gender in ['male', 'female', 'other', 'unknown']
-          && request.resource.data.isLiving is bool;
+              && !personHasSensitiveFields(request.resource.data)
+              && request.resource.data.firstName == resource.data.firstName
+              && request.resource.data.lastName == resource.data.lastName
+              && request.resource.data.gender == resource.data.gender
+              && request.resource.data.isLiving == resource.data.isLiving
+            )
+          );
         allow delete: if isAuthenticated() && canEditTree(treeId);
+
+        match /restricted/{docId} {
+          allow get: if docId == 'profile' && canReadPersonContent(treeId, personId);
+          allow list: if false;
+
+          allow create, update: if isAuthenticated()
+            && canEditTree(treeId)
+            && docId == 'profile'
+            && validRestrictedProfile(request.resource.data);
+
+          allow delete: if isAuthenticated()
+            && canEditTree(treeId)
+            && docId == 'profile';
+        }
 
         // ── Photos ────────────────────────────────────────────
         match /photos/{photoId} {
-          allow read: if canAccessTree(treeId);
+          allow read: if canReadPersonContent(treeId, personId);
 
           allow create: if isAuthenticated()
             && canEditTree(treeId)
@@ -232,7 +256,7 @@ service cloud.firestore {
 
         // ── Documents ─────────────────────────────────────────
         match /documents/{documentId} {
-          allow read: if canAccessTree(treeId);
+          allow read: if canReadPersonContent(treeId, personId);
 
           allow create: if isAuthenticated()
             && canEditTree(treeId)
@@ -253,7 +277,7 @@ service cloud.firestore {
 
         // ── Events (timeline) ─────────────────────────────────
         match /events/{eventId} {
-          allow read: if canAccessTree(treeId);
+          allow read: if canReadPersonContent(treeId, personId);
 
           allow create: if isAuthenticated()
             && canEditTree(treeId)
@@ -311,6 +335,69 @@ service cloud.firestore {
 
     function canAccessCollaborationData(treeId) {
       return isTreeOwner(treeId) || isTreeMember(treeId);
+    }
+
+    function canViewSensitive(treeId) {
+      let tree = get(/databases/$(database)/documents/trees/$(treeId)).data;
+      return isAuthenticated() && (
+        tree.userId == request.auth.uid
+        || (
+          tree.memberIds is list
+          && request.auth.uid in tree.memberIds
+          && (tree.isPublic != true || hasEditorRole(treeId))
+        )
+      );
+    }
+
+    function personHasSensitiveFields(data) {
+      return data.keys().hasAny([
+        'middleName', 'maidenName', 'birthDate', 'birthPlace',
+        'deathDate', 'deathPlace', 'bio', 'profilePhotoUrl'
+      ]);
+    }
+
+    function canReadPersonContent(treeId, personId) {
+      let person = get(/databases/$(database)/documents/trees/$(treeId)/persons/$(personId)).data;
+      return canViewSensitive(treeId)
+        || (canAccessTree(treeId) && person.isLiving == false);
+    }
+
+    function validPublicPerson(data) {
+      return data.firstName is string
+        && data.firstName.size() >= 1
+        && data.firstName.size() <= 100
+        && data.lastName is string
+        && data.lastName.size() >= 1
+        && data.lastName.size() <= 100
+        && data.gender in ['male', 'female', 'other', 'unknown']
+        && data.isLiving is bool;
+    }
+
+    function optionalString(data, key, maxLen) {
+      return !data.keys().hasAny([key])
+        || data[key] == null
+        || (data[key] is string && data[key].size() <= maxLen);
+    }
+
+    function optionalTimestamp(data, key) {
+      return !data.keys().hasAny([key])
+        || data[key] == null
+        || data[key] is timestamp;
+    }
+
+    function validRestrictedProfile(data) {
+      return data.keys().hasOnly([
+          'middleName', 'maidenName', 'birthDate', 'birthPlace',
+          'deathDate', 'deathPlace', 'bio', 'profilePhotoUrl', 'updatedAt'
+        ])
+        && optionalString(data, 'middleName', 100)
+        && optionalString(data, 'maidenName', 100)
+        && optionalString(data, 'birthPlace', 200)
+        && optionalString(data, 'deathPlace', 200)
+        && optionalString(data, 'bio', 2000)
+        && optionalString(data, 'profilePhotoUrl', 2048)
+        && optionalTimestamp(data, 'birthDate')
+        && optionalTimestamp(data, 'deathDate');
     }
 
     function canEditTree(treeId) {

@@ -30,7 +30,7 @@ service firebase.storage {
     // ── Tree media: users/{ownerId}/trees/{treeId}/persons/{personId}/{type}/{fileName}
     match /users/{ownerId}/trees/{treeId}/persons/{personId}/{type}/{fileName} {
 
-      allow read: if canAccessTreeMedia(treeId, ownerId);
+      allow read: if canReadPersonMedia(treeId, personId, ownerId);
 
       allow create: if request.auth.uid != null
         && canEditTreeMedia(treeId, ownerId)
@@ -45,20 +45,54 @@ service firebase.storage {
         && canEditTreeMedia(treeId, ownerId);
     }
 
-    function canAccessTreeMedia(treeId, ownerId) {
-      let tree = firestore.get(/databases/(default)/documents/trees/$(treeId)).data;
-      return tree.isPublic == true
-        || (request.auth.uid != null && (
-          request.auth.uid == ownerId
-          || (tree.memberIds is list && request.auth.uid in tree.memberIds)
-        ));
+    function treeData(treeId) {
+      return firestore.get(/databases/(default)/documents/trees/$(treeId)).data;
+    }
+
+    function personData(treeId, personId) {
+      return firestore.get(/databases/(default)/documents/trees/$(treeId)/persons/$(personId)).data;
+    }
+
+    function isEditor(treeId) {
+      return request.auth.uid != null
+        && treeData(treeId).memberIds is list
+        && request.auth.uid in treeData(treeId).memberIds
+        && firestore.get(/databases/(default)/documents/trees/$(treeId)/members/$(request.auth.uid)).data.accessLevel == 'editor';
+    }
+
+    // Owner, public-tree editors, and every member of a private tree.
+    function canViewSensitive(treeId) {
+      let tree = treeData(treeId);
+      return request.auth.uid != null && (
+        tree.userId == request.auth.uid
+        || isEditor(treeId)
+        || (tree.isPublic != true
+            && tree.memberIds is list
+            && request.auth.uid in tree.memberIds)
+      );
+    }
+
+    // Path owner must be the tree owner. Living-person files stay private on public trees.
+    function canReadPersonMedia(treeId, personId, ownerId) {
+      let tree = treeData(treeId);
+      let person = personData(treeId, personId);
+      return tree.userId == ownerId && (
+        canViewSensitive(treeId)
+        || (person.isLiving == false && (
+          tree.isPublic == true
+          || (request.auth.uid != null && (
+            request.auth.uid == tree.userId
+            || (tree.memberIds is list && request.auth.uid in tree.memberIds)
+          ))
+        ))
+      );
     }
 
     function canEditTreeMedia(treeId, ownerId) {
-      return request.auth.uid == ownerId
-        || (firestore.get(/databases/(default)/documents/trees/$(treeId)).data.memberIds is list
-            && request.auth.uid in firestore.get(/databases/(default)/documents/trees/$(treeId)).data.memberIds
-            && firestore.get(/databases/(default)/documents/trees/$(treeId)/members/$(request.auth.uid)).data.accessLevel == 'editor');
+      let tree = treeData(treeId);
+      return request.auth.uid != null
+        && tree.userId == ownerId
+        && (request.auth.uid == ownerId || isEditor(treeId));
     }
 
     function validateMediaFile(type) {

@@ -12,9 +12,16 @@ import {
   serverTimestamp,
   Timestamp,
   writeBatch,
+  deleteField,
   type DocumentReference,
 } from 'firebase/firestore';
 import { db } from './config';
+import {
+  RESTRICTED_PROFILE_ID,
+  personDataHasSensitiveFields,
+  pickSensitiveFields,
+  toPerson,
+} from './personRecords';
 import { deletePersonFiles } from './storage';
 import { removePersonRelationships, deleteAllTreeRelationships } from './relationships';
 import { deleteAllTreeMembers, deleteAllTreeInvites } from './members';
@@ -140,6 +147,7 @@ async function deletePersonAndSubcollections(
     deleteSubcollectionDocs(personPath, 'photos'),
     deleteSubcollectionDocs(personPath, 'documents'),
     deleteSubcollectionDocs(personPath, 'events'),
+    deleteSubcollectionDocs(personPath, 'restricted'),
   ]);
 
   // Delete storage files for this person
@@ -149,28 +157,105 @@ async function deletePersonAndSubcollections(
   await deleteDoc(doc(db, 'trees', treeId, 'persons', personId));
 }
 
+function restrictedProfileRef(treeId: string, personId: string) {
+  return doc(
+    db,
+    'trees',
+    treeId,
+    'persons',
+    personId,
+    'restricted',
+    RESTRICTED_PROFILE_ID
+  );
+}
+
+function isPermissionDenied(err: unknown): boolean {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    'code' in err &&
+    (err as { code?: string }).code === 'permission-denied'
+  );
+}
+
+async function readRestrictedProfile(
+  treeId: string,
+  personId: string
+): Promise<Record<string, unknown> | null> {
+  try {
+    const snap = await getDoc(restrictedProfileRef(treeId, personId));
+    return snap.exists() ? (snap.data() as Record<string, unknown>) : null;
+  } catch (err) {
+    if (isPermissionDenied(err)) return null;
+    throw err;
+  }
+}
+
+/**
+ * Move legacy sensitive fields off the public person document.
+ * Fails closed for viewers: a permission error leaves the read path intact.
+ */
+async function migrateLegacySensitiveFields(
+  treeId: string,
+  docs: { id: string; data: () => Record<string, unknown> }[]
+): Promise<void> {
+  const legacy = docs.filter((d) => personDataHasSensitiveFields(d.data()));
+  if (legacy.length === 0) return;
+
+  try {
+    for (let i = 0; i < legacy.length; i += 200) {
+      const chunk = legacy.slice(i, i + 200);
+      const batch = writeBatch(db);
+      for (const personDoc of chunk) {
+        const parent = personDoc.data();
+        const existing = await readRestrictedProfile(treeId, personDoc.id);
+        const restricted = {
+          ...(existing ?? {}),
+          ...pickSensitiveFields(parent),
+          updatedAt: serverTimestamp(),
+        };
+        batch.set(restrictedProfileRef(treeId, personDoc.id), restricted, { merge: true });
+        const clear: Record<string, unknown> = { updatedAt: serverTimestamp() };
+        for (const key of Object.keys(pickSensitiveFields(parent))) {
+          clear[key] = deleteField();
+        }
+        batch.update(doc(db, 'trees', treeId, 'persons', personDoc.id), clear);
+      }
+      await batch.commit();
+    }
+  } catch (err) {
+    if (!isPermissionDenied(err)) throw err;
+  }
+}
+
 // Person operations
 export async function createPerson(
   treeId: string,
   data: PersonSchemaFormData
 ): Promise<string> {
-  const docRef = await addDoc(collection(db, 'trees', treeId, 'persons'), {
+  const personRef = doc(collection(db, 'trees', treeId, 'persons'));
+  const batch = writeBatch(db);
+  batch.set(personRef, {
     firstName: data.firstName,
     lastName: data.lastName,
+    gender: data.gender,
+    isLiving: data.isLiving,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  batch.set(restrictedProfileRef(treeId, personRef.id), {
     middleName: data.middleName || null,
     maidenName: data.maidenName || null,
-    gender: data.gender,
     birthDate: data.birthDate ? Timestamp.fromDate(data.birthDate) : null,
     birthPlace: data.birthPlace || null,
     deathDate: data.deathDate ? Timestamp.fromDate(data.deathDate) : null,
     deathPlace: data.deathPlace || null,
-    isLiving: data.isLiving,
-    profilePhotoUrl: null,
     bio: data.bio || null,
-    createdAt: serverTimestamp(),
+    profilePhotoUrl: null,
     updatedAt: serverTimestamp(),
   });
-  return docRef.id;
+  await batch.commit();
+  return personRef.id;
 }
 
 export async function getPerson(
@@ -179,12 +264,25 @@ export async function getPerson(
 ): Promise<Person | null> {
   const docSnap = await getDoc(doc(db, 'trees', treeId, 'persons', personId));
   if (!docSnap.exists()) return null;
-  return { id: docSnap.id, ...docSnap.data() } as Person;
+  const data = docSnap.data() as Record<string, unknown>;
+  await migrateLegacySensitiveFields(treeId, [{ id: docSnap.id, data: () => data }]);
+  const restricted = await readRestrictedProfile(treeId, personId);
+  return toPerson(docSnap.id, data, restricted);
 }
 
 export async function getTreePersons(treeId: string): Promise<Person[]> {
   const snapshot = await getDocs(collection(db, 'trees', treeId, 'persons'));
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as Person);
+  const docs = snapshot.docs.map((d) => ({
+    id: d.id,
+    data: () => d.data() as Record<string, unknown>,
+  }));
+  await migrateLegacySensitiveFields(treeId, docs);
+  return Promise.all(
+    docs.map(async (d) => {
+      const restricted = await readRestrictedProfile(treeId, d.id);
+      return toPerson(d.id, d.data(), restricted);
+    })
+  );
 }
 
 export async function getTreePersonCount(treeId: string): Promise<number> {
@@ -197,23 +295,40 @@ export async function updatePerson(
   personId: string,
   data: Partial<PersonSchemaFormData>
 ): Promise<void> {
-  const updateData: Record<string, unknown> = {
-    ...data,
-    updatedAt: serverTimestamp(),
-  };
+  const publicUpdate: Record<string, unknown> = {};
+  const restrictedUpdate: Record<string, unknown> = {};
 
+  if (data.firstName !== undefined) publicUpdate.firstName = data.firstName;
+  if (data.lastName !== undefined) publicUpdate.lastName = data.lastName;
+  if (data.gender !== undefined) publicUpdate.gender = data.gender;
+  if (data.isLiving !== undefined) publicUpdate.isLiving = data.isLiving;
+
+  if (data.middleName !== undefined) restrictedUpdate.middleName = data.middleName || null;
+  if (data.maidenName !== undefined) restrictedUpdate.maidenName = data.maidenName || null;
+  if (data.birthPlace !== undefined) restrictedUpdate.birthPlace = data.birthPlace || null;
+  if (data.deathPlace !== undefined) restrictedUpdate.deathPlace = data.deathPlace || null;
+  if (data.bio !== undefined) restrictedUpdate.bio = data.bio || null;
   if (data.birthDate !== undefined) {
-    updateData.birthDate = data.birthDate
-      ? Timestamp.fromDate(data.birthDate)
-      : null;
+    restrictedUpdate.birthDate = data.birthDate ? Timestamp.fromDate(data.birthDate) : null;
   }
   if (data.deathDate !== undefined) {
-    updateData.deathDate = data.deathDate
-      ? Timestamp.fromDate(data.deathDate)
-      : null;
+    restrictedUpdate.deathDate = data.deathDate ? Timestamp.fromDate(data.deathDate) : null;
   }
 
-  await updateDoc(doc(db, 'trees', treeId, 'persons', personId), updateData);
+  const batch = writeBatch(db);
+  let writes = 0;
+  if (Object.keys(publicUpdate).length > 0) {
+    publicUpdate.updatedAt = serverTimestamp();
+    batch.update(doc(db, 'trees', treeId, 'persons', personId), publicUpdate);
+    writes += 1;
+  }
+  if (Object.keys(restrictedUpdate).length > 0) {
+    restrictedUpdate.updatedAt = serverTimestamp();
+    batch.set(restrictedProfileRef(treeId, personId), restrictedUpdate, { merge: true });
+    writes += 1;
+  }
+  if (writes === 0) return;
+  await batch.commit();
 }
 
 export async function deletePerson(
