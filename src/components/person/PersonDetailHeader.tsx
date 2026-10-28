@@ -5,6 +5,7 @@ import type { UiCtx } from '@/lib/types/uiCtx';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/Button';
+import { isRenderableImageUrl } from '@/lib/utils/imageUrl';
 import { format } from 'date-fns';
 
 export function PersonDetailHeader({ ctx }: { ctx: UiCtx }) {
@@ -35,7 +36,7 @@ export function PersonDetailHeader({ ctx }: { ctx: UiCtx }) {
 
       {/* Header */}
       <div className="mb-6 flex flex-col items-start gap-6 sm:flex-row sm:items-center">
-        {displayPerson.profilePhotoUrl ? (
+        {isRenderableImageUrl(displayPerson.profilePhotoUrl) ? (
           <Image
             src={displayPerson.profilePhotoUrl}
             alt={`${displayPerson.firstName} ${displayPerson.lastName}`}

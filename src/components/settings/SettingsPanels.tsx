@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import { Button } from '@/components/ui/Button';
+import { isRenderableImageUrl } from '@/lib/utils/imageUrl';
 import { Input } from '@/components/ui/Input';
 
 type ThemePreference = 'system' | 'light' | 'dark';
@@ -25,7 +26,7 @@ export function SettingsProfilePanel(props: {
     <section className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
       <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">Profile</h2>
       <div className="mb-6 flex items-center gap-4">
-        {p.photoUrl ? (
+        {isRenderableImageUrl(p.photoUrl) ? (
           <Image src={p.photoUrl} alt="Profile" width={64} height={64}
             className="h-16 w-16 rounded-full object-cover ring-2 ring-gray-200 dark:ring-gray-700" />
         ) : (
@@ -38,7 +39,7 @@ export function SettingsProfilePanel(props: {
             <span className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700">
               {p.photoUploading ? 'Uploading...' : 'Change Photo'}
             </span>
-            <input type="file" accept="image/*" className="hidden" onChange={p.onPhotoUpload} disabled={p.photoUploading} />
+            <input type="file" accept="image/jpeg,image/png,image/gif,image/webp" className="hidden" onChange={p.onPhotoUpload} disabled={p.photoUploading} />
           </label>
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">JPG, PNG, or WebP. Max 5MB.</p>
         </div>

@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { completeClientSignOut } from '@/lib/auth/session';
+import { isRenderableImageUrl } from '@/lib/utils/imageUrl';
 import { useAuthStore } from '@/lib/stores/authStore';
 
 interface HeaderProps {
@@ -71,7 +72,7 @@ export function Header({ onMenuClick }: HeaderProps) {
           aria-expanded={dropdownOpen}
           aria-haspopup="true"
         >
-          {user?.photoURL ? (
+          {isRenderableImageUrl(user?.photoURL) ? (
             <Image
               src={user.photoURL}
               alt={user.displayName || 'User'}

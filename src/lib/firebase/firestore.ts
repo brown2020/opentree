@@ -22,6 +22,7 @@ import {
   pickSensitiveFields,
   toPerson,
 } from './personRecords';
+import { isRenderableImageUrl } from '@/lib/utils/imageUrl';
 import { deletePersonFiles } from './storage';
 import { removePersonRelationships, deleteAllTreeRelationships } from './relationships';
 import { deleteAllTreeMembers, deleteAllTreeInvites } from './members';
@@ -209,9 +210,16 @@ async function migrateLegacySensitiveFields(
       for (const personDoc of chunk) {
         const parent = personDoc.data();
         const existing = await readRestrictedProfile(treeId, personDoc.id);
+        const sensitive = pickSensitiveFields(parent);
+        if (
+          typeof sensitive.profilePhotoUrl === 'string' &&
+          !isRenderableImageUrl(sensitive.profilePhotoUrl)
+        ) {
+          sensitive.profilePhotoUrl = null;
+        }
         const restricted = {
           ...(existing ?? {}),
-          ...pickSensitiveFields(parent),
+          ...sensitive,
           updatedAt: serverTimestamp(),
         };
         batch.set(restrictedProfileRef(treeId, personDoc.id), restricted, { merge: true });

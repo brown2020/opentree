@@ -2,6 +2,7 @@
 
 import type { UiCtx } from '@/lib/types/uiCtx';
 import { FamilyTreeControls } from '@/components/tree/FamilyTreeControls';
+import { isRenderableImageUrl } from '@/lib/utils/imageUrl';
 function renderRoundedElbow(link: UiCtx, i: number, linkColor: string) {
     const { from, to } = link;
     const midY = (from.y + to.y) / 2;
@@ -99,7 +100,7 @@ export function FamilyTreeView({ ctx }: { ctx: UiCtx }) {
             const borderColor = getNodeColor(person);
             const bgColor = getNodeBackgroundColor(person);
             const lifespan = getLifespan(person);
-            const hasPhoto = !!person.profilePhotoUrl;
+            const hasPhoto = isRenderableImageUrl(person.profilePhotoUrl);
             return (
               <g
                 key={person.id}

@@ -1,5 +1,6 @@
 import type { Person, Gender } from '@/lib/types';
 import type { Timestamp } from 'firebase/firestore';
+import { isRenderableImageUrl } from '@/lib/utils/imageUrl';
 
 /** Fields that must not sit on a publicly readable person document. */
 export const SENSITIVE_PERSON_KEYS = [
@@ -67,7 +68,9 @@ export function toPerson(
     deathDate: (merged.deathDate as Timestamp | null) ?? null,
     deathPlace: asNullableString(merged.deathPlace),
     isLiving: merged.isLiving !== false,
-    profilePhotoUrl: asNullableString(merged.profilePhotoUrl),
+    profilePhotoUrl: isRenderableImageUrl(asNullableString(merged.profilePhotoUrl))
+      ? asNullableString(merged.profilePhotoUrl)
+      : null,
     bio: asNullableString(merged.bio),
     createdAt: merged.createdAt as Timestamp,
     updatedAt: merged.updatedAt as Timestamp,

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import type { Person } from '@/lib/types';
+import { isRenderableImageUrl } from '@/lib/utils/imageUrl';
 
 export function RelationSection({
   title,
@@ -45,7 +46,7 @@ export function RelationSection({
             href={`/person/${p.id}?tree=${treeId}`}
             className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm transition-colors hover:border-emerald-300 hover:bg-emerald-50 dark:border-gray-700 dark:hover:border-emerald-700 dark:hover:bg-emerald-900/10"
           >
-            {display.profilePhotoUrl ? (
+            {isRenderableImageUrl(display.profilePhotoUrl) ? (
               <Image
                 src={display.profilePhotoUrl}
                 alt={`${display.firstName} ${display.lastName}`}

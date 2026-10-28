@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { format } from 'date-fns';
 import type { Person } from '@/lib/types';
 import { timestampToDate } from '@/lib/firebase/firestore';
+import { isRenderableImageUrl } from '@/lib/utils/imageUrl';
 
 interface PersonCardProps {
   person: Person;
@@ -77,7 +78,7 @@ export function PersonCard({
         aria-label={`Select ${person.firstName} ${person.lastName}`}
         className="flex min-w-0 flex-1 items-center gap-4 text-left"
       >
-        {person.profilePhotoUrl ? (
+        {isRenderableImageUrl(person.profilePhotoUrl) ? (
           <Image
             src={person.profilePhotoUrl}
             alt={`${person.firstName} ${person.lastName}`}

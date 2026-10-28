@@ -8,6 +8,7 @@ import { FileUpload } from '@/components/ui/FileUpload';
 import { ConfirmModal } from '@/components/ui/Modal';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { usePhotos } from '@/lib/hooks/usePhotos';
+import { isRenderableImageUrl } from '@/lib/utils/imageUrl';
 import { timestampToDate } from '@/lib/firebase/firestore';
 import type { Photo } from '@/lib/types';
 
@@ -109,13 +110,15 @@ export function PhotoGallery({ treeId, personId, treeOwnerId }: PhotoGalleryProp
               className="group relative aspect-square cursor-pointer overflow-hidden rounded-lg bg-gray-100 text-left dark:bg-gray-800"
               onClick={() => setSelectedPhoto(photo)}
             >
-              <Image
-                src={photo.url}
-                alt={photo.caption || 'Photo'}
-                fill
-                className="object-cover transition-transform group-hover:scale-105"
-                sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
-              />
+              {isRenderableImageUrl(photo.url) ? (
+                <Image
+                  src={photo.url}
+                  alt={photo.caption || 'Photo'}
+                  fill
+                  className="object-cover transition-transform group-hover:scale-105"
+                  sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
+                />
+              ) : null}
               {photo.isProfilePhoto && (
                 <div className="absolute left-2 top-2 rounded-full bg-emerald-500 px-2 py-0.5 text-xs font-medium text-white">
                   Profile
@@ -161,12 +164,15 @@ export function PhotoGallery({ treeId, personId, treeOwnerId }: PhotoGalleryProp
             className="max-h-[80vh] max-w-4xl"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={selectedPhoto.url}
-              alt={selectedPhoto.caption || 'Photo'}
-              className="max-h-[70vh] rounded-lg object-contain"
-            />
+            {isRenderableImageUrl(selectedPhoto.url) ? (
+              // Native img: the lightbox is a transient overlay, not an LCP image.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={selectedPhoto.url}
+                alt={selectedPhoto.caption || 'Photo'}
+                className="max-h-[70vh] rounded-lg object-contain"
+              />
+            ) : null}
             <div className="mt-4 flex items-center justify-between">
               <div className="text-white">
                 {selectedPhoto.caption && (
