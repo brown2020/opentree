@@ -13,17 +13,20 @@ service cloud.firestore {
       // Owner can read their own doc
       allow get: if isAuthenticated() && request.auth.uid == userId;
 
-      // Create own user doc on signup. Email must be the auth token email
-      // (verification may still be pending; invite acceptance checks that separately).
+      // Create only the caller's own profile. Email enumeration protection omits
+      // token.email until the address is verified, so an empty token email may
+      // create this uid's doc and no other. Once the token has an email, it must match.
       // No download URLs: profile photos stay in Auth/Storage, not on a shared doc.
       allow create: if isAuthenticated()
         && request.auth.uid == userId
         && request.resource.data.keys().hasOnly(['email', 'displayName', 'createdAt', 'updatedAt'])
         && request.resource.data.email is string
-        && tokenEmail().size() > 0
-        && request.resource.data.email.lower() == tokenEmail()
+        && request.resource.data.email.size() > 0
+        && request.resource.data.email.size() <= 320
         && request.resource.data.displayName is string
-        && request.resource.data.displayName.size() <= 100;
+        && request.resource.data.displayName.size() <= 100
+        && (tokenEmail().size() == 0
+            || request.resource.data.email.lower() == tokenEmail());
 
       // Update own profile. photoURL may only be removed, never set to a tokenized URL.
       allow update: if isAuthenticated()
@@ -39,11 +42,16 @@ service cloud.firestore {
         );
     }
 
-    // Public lookup for invites: uid and display name only, never a Storage token.
+    // Invite lookup: uid and display name only, never a Storage token.
+    // Unverified sessions cannot list the directory or read someone else's entry.
     match /userDirectory/{emailId} {
-      allow get: if isAuthenticated();
+      allow get: if isAuthenticated() && (
+        request.auth.token.email_verified == true
+        || (resource != null && resource.data.uid == request.auth.uid)
+      );
 
       allow list: if isAuthenticated()
+        && request.auth.token.email_verified == true
         && request.query.limit <= 1
         && request.query.filters.size() == 1
         && request.query.filters[0].field.path.last() == 'email'

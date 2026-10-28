@@ -35,14 +35,9 @@ export async function signUp(
 
   await updateProfile(user, { displayName });
 
-  // Create the profile before sending mail so a failed send still leaves an account.
-  await setDoc(doc(db, 'users', user.uid), {
-    email: user.email?.toLowerCase() ?? '',
-    displayName,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
-  await ensureUserDirectory(user);
+  // Profile and directory docs wait until the email is verified. Writing them
+  // now fails: the ID token omits email until then, and /verify-email would
+  // surface that Firestore denial.
   await sendVerificationEmail(user);
 
   return user;
@@ -138,6 +133,22 @@ export async function completeEmailLinkSignIn(
   await ensureUserDirectory(user);
 
   return user;
+}
+
+export async function ensureOwnUserDoc(user: FirebaseUser): Promise<void> {
+  const email = user.email?.trim().toLowerCase() ?? '';
+  if (!email) return;
+
+  const userRef = doc(db, 'users', user.uid);
+  const snap = await getDoc(userRef);
+  if (snap.exists()) return;
+
+  await setDoc(userRef, {
+    email,
+    displayName: user.displayName ?? '',
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
 }
 
 export async function ensureUserDirectory(user: FirebaseUser): Promise<void> {

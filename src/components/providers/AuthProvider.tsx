@@ -4,6 +4,7 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import {
   subscribeToAuthChanges,
   isUserEmailVerified,
+  ensureOwnUserDoc,
   ensureUserDirectory,
   clearStoredProfilePhotoUrl,
 } from '@/lib/firebase/auth';
@@ -34,12 +35,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setEmailVerified(verified);
         syncAuthSessionCookieSafe(appUser, verified);
 
-        void ensureUserDirectory(firebaseUser).catch(() => {
-          // Directory lookup is best-effort and must not block sign-in.
-        });
-        void clearStoredProfilePhotoUrl(firebaseUser.uid).catch(() => {
-          // Removing a legacy photo URL must not block sign-in.
-        });
+        // Unverified email/password tokens omit the email claim, so profile
+        // reads and directory writes are denied. Do them after verification.
+        if (verified) {
+          void ensureOwnUserDoc(firebaseUser).catch(() => {
+            // Profile creation must not block an already verified session.
+          });
+          void ensureUserDirectory(firebaseUser).catch(() => {
+            // Directory lookup is best-effort and must not block sign-in.
+          });
+          void clearStoredProfilePhotoUrl(firebaseUser.uid).catch(() => {
+            // Removing a legacy photo URL must not block sign-in.
+          });
+        }
 
         if (verified && firebaseUser.email && !resolvingInvitesRef.current) {
           resolvingInvitesRef.current = true;

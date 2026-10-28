@@ -6,6 +6,8 @@ import {
   sendVerificationEmail,
   refreshUserEmailVerified,
   getCurrentUser,
+  ensureOwnUserDoc,
+  ensureUserDirectory,
 } from '@/lib/firebase/auth';
 import { authErrorMessage } from '@/lib/firebase/authErrors';
 import { resolvePendingInvitesForUser } from '@/lib/firebase/members';
@@ -14,8 +16,12 @@ import {
   completeClientSignOut,
 } from '@/lib/auth/session';
 import {
+  VERIFICATION_RESEND_COOLDOWN_MS,
+  isVerificationRateLimitMessage,
+  presentVerificationError,
   readVerificationEmailNotice,
   rememberVerificationEmailError,
+  resendCooldownSeconds,
 } from '@/lib/auth/verificationNotice';
 import { Button } from '@/components/ui/Button';
 import { FullPageLoader } from '@/components/ui/LoadingSpinner';
@@ -26,8 +32,22 @@ export default function VerifyEmailPage() {
   const [checking, setChecking] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [resendAvailableAt, setResendAvailableAt] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
   const redirectingRef = useRef(false);
   const autoSendStarted = useRef(false);
+  const cooldownSeconds = resendCooldownSeconds(resendAvailableAt, now);
+
+  const beginResendCooldown = useCallback(() => {
+    setResendAvailableAt(Date.now() + VERIFICATION_RESEND_COOLDOWN_MS);
+    setNow(Date.now());
+  }, []);
+
+  useEffect(() => {
+    if (resendAvailableAt == null) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [resendAvailableAt]);
 
   useEffect(() => {
     if (!initialized || redirectingRef.current) return;
@@ -41,6 +61,19 @@ export default function VerifyEmailPage() {
     if (emailVerified) {
       redirectingRef.current = true;
       void (async () => {
+        const current = getCurrentUser();
+        if (current) {
+          try {
+            await ensureOwnUserDoc(current);
+          } catch {
+            // The profile is created again on the next verified session.
+          }
+          try {
+            await ensureUserDirectory(current);
+          } catch {
+            // Directory lookup stays best-effort.
+          }
+        }
         try {
           await syncAuthSessionCookie(user, true);
         } catch {
@@ -65,19 +98,22 @@ export default function VerifyEmailPage() {
       await sendVerificationEmail(currentUser);
       setMessage('Verification email sent. Check your inbox and spam folder.');
     } catch (err) {
-      const message = authErrorMessage(err);
+      const message = presentVerificationError(authErrorMessage(err));
       rememberVerificationEmailError(message);
       setError(message);
+      if (isVerificationRateLimitMessage(message)) beginResendCooldown();
     } finally {
       setSending(false);
     }
-  }, []);
+  }, [beginResendCooldown]);
 
   useEffect(() => {
     if (!initialized || !user || emailVerified || autoSendStarted.current) return;
     const notice = readVerificationEmailNotice();
     if (notice.error) {
-      setError(notice.error);
+      const shown = presentVerificationError(notice.error);
+      setError(shown);
+      if (isVerificationRateLimitMessage(shown)) beginResendCooldown();
       return;
     }
     if (notice.sent) {
@@ -86,7 +122,7 @@ export default function VerifyEmailPage() {
     }
     autoSendStarted.current = true;
     void handleResendEmail();
-  }, [initialized, user, emailVerified, handleResendEmail]);
+  }, [initialized, user, emailVerified, handleResendEmail, beginResendCooldown]);
 
   const handleCheckVerification = async () => {
     setChecking(true);
@@ -203,8 +239,13 @@ export default function VerifyEmailPage() {
           className="w-full"
           onClick={handleResendEmail}
           loading={sending}
+          disabled={cooldownSeconds > 0}
         >
-          {message ? 'Resend verification email' : 'Send verification email'}
+          {cooldownSeconds > 0
+            ? `Resend in ${cooldownSeconds}s`
+            : message
+              ? 'Resend verification email'
+              : 'Send verification email'}
         </Button>
 
         <button
