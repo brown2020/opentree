@@ -58,7 +58,7 @@ service firebase.storage {
       return request.auth.uid == ownerId
         || (firestore.get(/databases/(default)/documents/trees/$(treeId)).data.memberIds is list
             && request.auth.uid in firestore.get(/databases/(default)/documents/trees/$(treeId)).data.memberIds
-            && (firestore.get(/databases/(default)/documents/trees/$(treeId)/members/$(request.auth.uid)).data.accessLevel == 'editor' || firestore.get(/databases/(default)/documents/trees/$(treeId)/members/$(request.auth.uid)).data.role == 'editor'));
+            && firestore.get(/databases/(default)/documents/trees/$(treeId)/members/$(request.auth.uid)).data.accessLevel == 'editor');
     }
 
     function validateMediaFile(type) {
