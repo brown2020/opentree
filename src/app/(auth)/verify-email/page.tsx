@@ -1,17 +1,22 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuthStore } from '@/lib/stores/authStore';
 import {
   sendVerificationEmail,
   refreshUserEmailVerified,
   getCurrentUser,
 } from '@/lib/firebase/auth';
+import { authErrorMessage } from '@/lib/firebase/authErrors';
 import { resolvePendingInvitesForUser } from '@/lib/firebase/members';
 import {
   syncAuthSessionCookie,
   completeClientSignOut,
 } from '@/lib/auth/session';
+import {
+  readVerificationEmailNotice,
+  rememberVerificationEmailError,
+} from '@/lib/auth/verificationNotice';
 import { Button } from '@/components/ui/Button';
 import { FullPageLoader } from '@/components/ui/LoadingSpinner';
 
@@ -22,6 +27,7 @@ export default function VerifyEmailPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const redirectingRef = useRef(false);
+  const autoSendStarted = useRef(false);
 
   useEffect(() => {
     if (!initialized || redirectingRef.current) return;
@@ -45,7 +51,7 @@ export default function VerifyEmailPage() {
     }
   }, [initialized, user, emailVerified]);
 
-  const handleResendEmail = async () => {
+  const handleResendEmail = useCallback(async () => {
     setSending(true);
     setError(null);
     setMessage(null);
@@ -57,18 +63,30 @@ export default function VerifyEmailPage() {
         return;
       }
       await sendVerificationEmail(currentUser);
-      setMessage('Verification email sent! Check your inbox.');
+      setMessage('Verification email sent. Check your inbox and spam folder.');
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to send email';
-      if (msg.includes('too-many-requests')) {
-        setError('Too many requests. Please wait a few minutes before trying again.');
-      } else {
-        setError(msg);
-      }
+      const message = authErrorMessage(err);
+      rememberVerificationEmailError(message);
+      setError(message);
     } finally {
       setSending(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!initialized || !user || emailVerified || autoSendStarted.current) return;
+    const notice = readVerificationEmailNotice();
+    if (notice.error) {
+      setError(notice.error);
+      return;
+    }
+    if (notice.sent) {
+      setMessage('Verification email sent. Check your inbox and spam folder.');
+      return;
+    }
+    autoSendStarted.current = true;
+    void handleResendEmail();
+  }, [initialized, user, emailVerified, handleResendEmail]);
 
   const handleCheckVerification = async () => {
     setChecking(true);
@@ -99,7 +117,7 @@ export default function VerifyEmailPage() {
         setError('Email not yet verified. Please check your inbox and click the verification link.');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to check verification status');
+      setError(authErrorMessage(err));
     } finally {
       setChecking(false);
     }
@@ -140,7 +158,11 @@ export default function VerifyEmailPage() {
           Verify your email
         </h2>
         <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-          We sent a verification email to
+          {sending
+            ? 'Sending a verification email to'
+            : message
+              ? 'We sent a verification email to'
+              : 'Verification is still needed for'}
         </p>
         <p className="font-medium text-gray-900 dark:text-gray-100">
           {user.email}
@@ -148,8 +170,9 @@ export default function VerifyEmailPage() {
       </div>
 
       <p className="text-sm text-gray-600 dark:text-gray-400">
-        Click the link in the email to verify your account. If you don&apos;t see
-        the email, check your spam folder.
+        {message
+          ? 'Click the link in that email to verify your account.'
+          : 'Use the button below to send the verification email, then click the link in the message.'}
       </p>
 
       {message && (
@@ -166,6 +189,7 @@ export default function VerifyEmailPage() {
 
       <div className="space-y-3">
         <Button
+          type="button"
           className="w-full"
           onClick={handleCheckVerification}
           loading={checking}
@@ -174,15 +198,17 @@ export default function VerifyEmailPage() {
         </Button>
 
         <Button
+          type="button"
           variant="outline"
           className="w-full"
           onClick={handleResendEmail}
           loading={sending}
         >
-          Resend verification email
+          {message ? 'Resend verification email' : 'Send verification email'}
         </Button>
 
         <button
+          type="button"
           onClick={handleSignOut}
           className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
         >

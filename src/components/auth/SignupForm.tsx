@@ -4,8 +4,11 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
-import { signUp } from '@/lib/firebase/auth';
+import { getCurrentUser, signUp } from '@/lib/firebase/auth';
+import { authErrorMessage } from '@/lib/firebase/authErrors';
+import { holdAuthRedirect } from '@/lib/auth/redirectHold';
 import { syncAuthSessionCookie, waitForAuthHydration } from '@/lib/auth/session';
+import { rememberVerificationEmailError } from '@/lib/auth/verificationNotice';
 import { useAuthStore } from '@/lib/stores/authStore';
 import { signupSchema, type SignupFormData } from '@/lib/utils/validation';
 import { Button } from '@/components/ui/Button';
@@ -26,6 +29,9 @@ export function SignupForm() {
 
   const onSubmit = async (data: SignupFormData) => {
     setError(null);
+    // Hold the guest redirect until the verification request finishes. Otherwise
+    // GuestGuard navigates to /verify-email and aborts the in-flight send.
+    const releaseRedirect = holdAuthRedirect();
     try {
       await signUp(data.email, data.password, data.displayName);
       try {
@@ -41,15 +47,13 @@ export function SignupForm() {
       }
       window.location.assign('/verify-email');
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Failed to create account';
-      if (message.includes('email-already-in-use')) {
-        setError('An account with this email already exists');
-      } else if (message.includes('weak-password')) {
-        setError('Password is too weak');
-      } else {
-        setError(message);
+      const message = authErrorMessage(err);
+      if (getCurrentUser()) {
+        rememberVerificationEmailError(message);
       }
+      setError(message);
+    } finally {
+      releaseRedirect();
     }
   };
 

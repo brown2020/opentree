@@ -17,7 +17,10 @@ import {
   User as FirebaseUser,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc, deleteField, serverTimestamp } from 'firebase/firestore';
+import { rememberVerificationEmailSent } from '@/lib/auth/verificationNotice';
 import { auth, db } from './config';
+import { verificationContinueUrl } from './authErrors';
+import { deliverVerificationEmail } from './verificationEmail';
 
 const googleProvider = new GoogleAuthProvider();
 
@@ -32,10 +35,7 @@ export async function signUp(
 
   await updateProfile(user, { displayName });
 
-  // Send verification email
-  await sendEmailVerification(user);
-
-  // Create user document in Firestore
+  // Create the profile before sending mail so a failed send still leaves an account.
   await setDoc(doc(db, 'users', user.uid), {
     email: user.email?.toLowerCase() ?? '',
     displayName,
@@ -43,6 +43,7 @@ export async function signUp(
     updatedAt: serverTimestamp(),
   });
   await ensureUserDirectory(user);
+  await sendVerificationEmail(user);
 
   return user;
 }
@@ -178,8 +179,20 @@ export function getStoredEmailForSignIn(): string | null {
 
 // ============ Email Verification ============
 
+let verificationSend: Promise<void> | null = null;
+
 export async function sendVerificationEmail(user: FirebaseUser): Promise<void> {
-  await sendEmailVerification(user);
+  if (verificationSend) return verificationSend;
+
+  const continueUrl =
+    typeof window === 'undefined' ? null : verificationContinueUrl(window.location.origin);
+  const run = deliverVerificationEmail(user, continueUrl, sendEmailVerification).then(() => {
+    rememberVerificationEmailSent();
+  });
+  verificationSend = run.finally(() => {
+    verificationSend = null;
+  });
+  return verificationSend;
 }
 
 export async function refreshUserEmailVerified(): Promise<boolean> {

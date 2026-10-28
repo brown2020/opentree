@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signIn, sendEmailLinkSignIn } from '@/lib/firebase/auth';
+import { authErrorMessage } from '@/lib/firebase/authErrors';
 import { navigateAfterSignIn } from '@/lib/auth/session';
 import { loginSchema, type LoginFormData } from '@/lib/utils/validation';
 import { Button } from '@/components/ui/Button';
@@ -36,12 +37,8 @@ export function LoginForm() {
       await signIn(data.email, data.password);
       await navigateAfterSignIn(router);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to sign in';
-      if (message.includes('invalid-credential')) {
-        setError('Invalid email or password');
-      } else if (message.includes('too-many-requests')) {
-        setError('Too many attempts. Please try again later.');
-      } else if (
+      const message = authErrorMessage(err);
+      if (
         message.includes('Auth hydration timeout') ||
         message.includes('Session sync') ||
         message.includes('no user session')
@@ -66,8 +63,7 @@ export function LoginForm() {
       await sendEmailLinkSignIn(emailValue);
       setEmailLinkSent(true);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to send sign-in link';
-      setError(message);
+      setError(authErrorMessage(err));
     } finally {
       setSendingEmailLink(false);
     }

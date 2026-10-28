@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { useAuthStore } from '@/lib/stores/authStore';
+import { isAuthRedirectHeld, subscribeAuthRedirectHold } from '@/lib/auth/redirectHold';
 import { pathAfterSessionSync, syncAuthSessionCookie } from '@/lib/auth/session';
 import { Button } from '@/components/ui/Button';
 import { FullPageLoader } from '@/components/ui/LoadingSpinner';
@@ -23,9 +24,14 @@ export function GuestGuard({ children }: GuestGuardProps) {
   const { user, emailVerified, initialized } = useAuthStore();
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const redirectHeld = useSyncExternalStore(
+    subscribeAuthRedirectHold,
+    isAuthRedirectHeld,
+    () => false
+  );
 
   useEffect(() => {
-    if (!initialized || !user) return;
+    if (!initialized || !user || redirectHeld) return;
     if (ALLOWED_AUTH_PAGES.includes(pathname ?? '')) return;
 
     let cancelled = false;
@@ -47,7 +53,7 @@ export function GuestGuard({ children }: GuestGuardProps) {
     return () => {
       cancelled = true;
     };
-  }, [initialized, user, emailVerified, pathname, attempt]);
+  }, [initialized, user, emailVerified, pathname, attempt, redirectHeld]);
 
   if (!initialized) {
     return <FullPageLoader />;
@@ -79,7 +85,7 @@ export function GuestGuard({ children }: GuestGuardProps) {
     );
   }
 
-  if (user) {
+  if (user && !redirectHeld) {
     return <FullPageLoader />;
   }
 
