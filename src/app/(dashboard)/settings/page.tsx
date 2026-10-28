@@ -10,6 +10,7 @@ import {
   EmailAuthProvider,
 } from 'firebase/auth';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { ensureUserDirectory } from '@/lib/firebase/auth';
 import {
   ref,
   uploadBytes,
@@ -88,6 +89,7 @@ export default function SettingsPage() {
         displayName: displayName.trim(),
         updatedAt: serverTimestamp(),
       });
+      await ensureUserDirectory(auth.currentUser);
 
       const storeUser = useAuthStore.getState().user;
       if (storeUser) {
@@ -113,8 +115,8 @@ export default function SettingsPage() {
     if (!file || !auth.currentUser) return;
 
     // Validate
-    if (!file.type.startsWith('image/')) {
-      setProfileError('Please select an image file');
+    if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)) {
+      setProfileError('Please select a JPEG, PNG, GIF, or WebP image');
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
@@ -133,10 +135,6 @@ export default function SettingsPage() {
       const url = await getDownloadURL(storageRef);
 
       await updateProfile(auth.currentUser, { photoURL: url });
-      await updateDoc(doc(db, 'users', auth.currentUser.uid), {
-        photoURL: url,
-        updatedAt: serverTimestamp(),
-      });
 
       setPhotoUrl(url);
 

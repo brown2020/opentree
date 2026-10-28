@@ -1,7 +1,12 @@
 'use client';
 
 import { useEffect, useRef, type ReactNode } from 'react';
-import { subscribeToAuthChanges, isUserEmailVerified } from '@/lib/firebase/auth';
+import {
+  subscribeToAuthChanges,
+  isUserEmailVerified,
+  ensureUserDirectory,
+  clearStoredProfilePhotoUrl,
+} from '@/lib/firebase/auth';
 import { resolvePendingInvitesForUser } from '@/lib/firebase/members';
 import { syncAuthSessionCookieSafe } from '@/lib/auth/session';
 import { useAuthStore } from '@/lib/stores/authStore';
@@ -28,6 +33,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setUser(appUser);
         setEmailVerified(verified);
         syncAuthSessionCookieSafe(appUser, verified);
+
+        void ensureUserDirectory(firebaseUser).catch(() => {
+          // Directory lookup is best-effort and must not block sign-in.
+        });
+        void clearStoredProfilePhotoUrl(firebaseUser.uid).catch(() => {
+          // Removing a legacy photo URL must not block sign-in.
+        });
 
         if (verified && firebaseUser.email && !resolvingInvitesRef.current) {
           resolvingInvitesRef.current = true;

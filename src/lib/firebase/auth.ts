@@ -16,7 +16,7 @@ import {
   reload,
   User as FirebaseUser,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, deleteField, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from './config';
 
 const googleProvider = new GoogleAuthProvider();
@@ -39,10 +39,10 @@ export async function signUp(
   await setDoc(doc(db, 'users', user.uid), {
     email: user.email?.toLowerCase() ?? '',
     displayName,
-    photoURL: null,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+  await ensureUserDirectory(user);
 
   return user;
 }
@@ -77,15 +77,15 @@ export async function signInWithGoogle(): Promise<FirebaseUser> {
   const userDocRef = doc(db, 'users', user.uid);
   const userDoc = await getDoc(userDocRef);
 
-    if (!userDoc.exists()) {
+  if (!userDoc.exists()) {
     await setDoc(userDocRef, {
       email: user.email?.toLowerCase() ?? '',
-      displayName: user.displayName,
-      photoURL: user.photoURL,
+      displayName: user.displayName ?? '',
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
   }
+  await ensureUserDirectory(user);
 
   return user;
 }
@@ -126,17 +126,49 @@ export async function completeEmailLinkSignIn(
   const userDocRef = doc(db, 'users', user.uid);
   const userDoc = await getDoc(userDocRef);
 
-    if (!userDoc.exists()) {
+  if (!userDoc.exists()) {
     await setDoc(userDocRef, {
       email: user.email?.toLowerCase() ?? '',
       displayName: user.email?.split('@')[0] || 'User',
-      photoURL: null,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
   }
+  await ensureUserDirectory(user);
 
   return user;
+}
+
+export async function ensureUserDirectory(user: FirebaseUser): Promise<void> {
+  const email = user.email?.trim().toLowerCase() ?? '';
+  if (!email) return;
+
+  const directoryRef = doc(db, 'userDirectory', email);
+  const existing = await getDoc(directoryRef);
+  const displayName = user.displayName ?? null;
+
+  if (!existing.exists()) {
+    await setDoc(directoryRef, {
+      uid: user.uid,
+      email,
+      displayName,
+    });
+    return;
+  }
+
+  if (existing.data().uid === user.uid && existing.data().displayName !== displayName) {
+    await updateDoc(directoryRef, { displayName });
+  }
+}
+
+export async function clearStoredProfilePhotoUrl(uid: string): Promise<void> {
+  const userRef = doc(db, 'users', uid);
+  const snap = await getDoc(userRef);
+  if (!snap.exists() || !Object.prototype.hasOwnProperty.call(snap.data(), 'photoURL')) return;
+  await updateDoc(userRef, {
+    photoURL: deleteField(),
+    updatedAt: serverTimestamp(),
+  });
 }
 
 export function getStoredEmailForSignIn(): string | null {

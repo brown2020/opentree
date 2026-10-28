@@ -6,6 +6,7 @@ import {
   getDocs,
   query,
   where,
+  limit,
   serverTimestamp,
   writeBatch,
   arrayUnion,
@@ -66,16 +67,19 @@ async function findUserByEmail(
   email: string
 ): Promise<{ uid: string; displayName: string | null } | null> {
   const q = query(
-    collection(db, 'users'),
-    where('email', '==', email)
+    collection(db, 'userDirectory'),
+    where('email', '==', email),
+    limit(1)
   );
   const snapshot = await getDocs(q);
   if (snapshot.empty) return null;
 
-  const userData = snapshot.docs[0];
+  const userData = snapshot.docs[0].data();
+  const uid = userData.uid;
+  if (typeof uid !== 'string' || uid.length === 0) return null;
   return {
-    uid: userData.id,
-    displayName: (userData.data().displayName as string) || null,
+    uid,
+    displayName: (userData.displayName as string) || null,
   };
 }
 
