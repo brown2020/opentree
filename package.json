@@ -11,35 +11,36 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@hookform/resolvers": "^5.4.0",
+    "@hookform/resolvers": "^6.0.1",
     "cookies-next": "^6.1.1",
     "d3-selection": "^3.0.0",
     "d3-transition": "^3.0.1",
     "d3-zoom": "^3.0.0",
     "date-fns": "^4.4.0",
-    "firebase": "^12.16.0",
-    "jszip": "^3.10.1",
-    "next": "16.3.5",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7",
-    "react-dropzone": "^17.0.0",
-    "react-hook-form": "^7.81.0",
-    "zod": "^4.4.3",
-    "zustand": "^5.0.14"
+    "firebase": "^13.1.0",
+    "jszip": "^3.10.2",
+    "next": "^16.4.3",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-dropzone": "^20.1.4",
+    "react-hook-form": "^7.91.0",
+    "zod": "^4.6.7",
+    "zustand": "^5.0.16"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.3.2",
+    "@tailwindcss/postcss": "^4.3.3",
     "@types/d3-selection": "^3.0.11",
     "@types/d3-transition": "^3.0.9",
     "@types/d3-zoom": "^3.0.8",
-    "@types/node": "^26.1.1",
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19",
-    "eslint": "^9.39.5",
-    "eslint-config-next": "16.3.5",
-    "tailwindcss": "^4.3.2",
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "eslint": "^10.13.0",
+    "eslint-config-next": "^16.4.3",
+    "tailwindcss": "^4.3.3",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.10"
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5"
   },
   "allowScripts": {
     "@firebase/util@1.15.1": true,
@@ -49,6 +50,7 @@
     "unrs-resolver": true
   },
   "overrides": {
-    "postcss": "^8.5.10"
+    "postcss": "^8.5.10",
+    "@grpc/grpc-js": "^1.14.0"
   }
 }
