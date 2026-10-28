@@ -206,9 +206,8 @@ export async function resolvePendingInvitesForUser(
   const normalizedEmail = normalizeInviteEmail(email);
   if (!normalizedEmail) return 0;
 
-  const userDoc = await getDoc(doc(db, 'users', userId));
-  const storedEmail = userDoc.data()?.email as string | undefined;
-  const queryEmail = normalizeInviteEmail(storedEmail || normalizedEmail);
+  // Query the auth email only. users/{uid}.email is not an authority.
+  const queryEmail = normalizedEmail;
 
   const snapshot = await getDocs(
     query(

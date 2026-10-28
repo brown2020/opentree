@@ -20,12 +20,14 @@ service cloud.firestore {
         && request.query.filters[0].field.path.last() == 'email'
         && request.query.filters[0].op == '==';
 
-      // Create own user doc on signup
+      // Create own user doc on signup. Email must be the auth token email
+      // (verification may still be pending; invite acceptance checks that separately).
       allow create: if isAuthenticated()
         && request.auth.uid == userId
         && request.resource.data.keys().hasAll(['email', 'displayName', 'createdAt', 'updatedAt'])
         && request.resource.data.email is string
-        && request.resource.data.email.size() > 0
+        && tokenEmail().size() > 0
+        && request.resource.data.email.lower() == tokenEmail()
         && request.resource.data.displayName is string;
 
       // Update own profile (display name, photo, updatedAt only)
@@ -322,10 +324,17 @@ service cloud.firestore {
       return member.accessLevel == 'editor' || member.role == 'editor';
     }
 
+    // Auth token is the only authority for email. A user document email is
+    // client-written and must not be used to accept or read invites.
+    function tokenEmail() {
+      return request.auth.token.email is string
+        ? request.auth.token.email.lower()
+        : '';
+    }
+
     function canonicalUserEmail() {
-      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
-      return userDoc != null && userDoc.data.email is string
-        ? userDoc.data.email
+      return request.auth.token.email_verified == true
+        ? tokenEmail()
         : '';
     }
 
