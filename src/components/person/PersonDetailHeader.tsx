@@ -17,7 +17,7 @@ export function PersonDetailHeader({ ctx }: { ctx: UiCtx }) {
     <>
       {/* Breadcrumb */}
       <nav aria-label="Breadcrumb" className="mb-6 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-        <Link href="/" className="hover:text-gray-700 dark:hover:text-gray-200">
+        <Link href="/dashboard" className="hover:text-gray-700 dark:hover:text-gray-200">
           Dashboard
         </Link>
         <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

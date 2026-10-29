@@ -6,10 +6,15 @@ export function isPublicTreeRoute(pathname: string): boolean {
   return /^\/tree\/[^/]+\/public\/?$/.test(pathname);
 }
 
+/** Home dashboard. `/` is the page; `/dashboard` is the same screen. */
+export function isDashboardPath(pathname: string): boolean {
+  return pathname === '/' || pathname === '/dashboard';
+}
+
 /** Routes that require a verified session cookie. */
 export function isProtectedRoute(pathname: string): boolean {
   if (isPublicTreeRoute(pathname)) return false;
-  if (pathname === '/') return true;
+  if (isDashboardPath(pathname)) return true;
   if (pathname === '/settings') return true;
   if (pathname.startsWith('/tree/')) return true;
   if (pathname.startsWith('/person/')) return true;

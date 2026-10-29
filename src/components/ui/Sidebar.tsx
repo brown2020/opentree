@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { isDashboardPath } from '@/lib/auth/routes';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { getUserTrees } from '@/lib/firebase/firestore';
 import type { Tree } from '@/lib/types';
@@ -84,11 +85,11 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           <ul className="space-y-1">
             <li>
               <Link
-                href="/"
+                href="/dashboard"
                 onClick={onClose}
                 className={`
                   flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors
-                  ${pathname === '/'
+                  ${isDashboardPath(pathname)
                     ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
                     : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700'
                   }

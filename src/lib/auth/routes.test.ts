@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   isProtectedRoute,
   isAuthEntryRoute,
+  isDashboardPath,
   isPublicTreeRoute,
   shouldSkipMiddleware,
 } from './routes';
@@ -15,9 +16,19 @@ describe('isPublicTreeRoute', () => {
   });
 });
 
+describe('isDashboardPath', () => {
+  it('matches the home dashboard and the /dashboard alias', () => {
+    expect(isDashboardPath('/')).toBe(true);
+    expect(isDashboardPath('/dashboard')).toBe(true);
+    expect(isDashboardPath('/settings')).toBe(false);
+    expect(isDashboardPath('/dashboard/extra')).toBe(false);
+  });
+});
+
 describe('isProtectedRoute', () => {
   it('protects dashboard routes', () => {
     expect(isProtectedRoute('/')).toBe(true);
+    expect(isProtectedRoute('/dashboard')).toBe(true);
     expect(isProtectedRoute('/settings')).toBe(true);
     expect(isProtectedRoute('/tree/abc123')).toBe(true);
     expect(isProtectedRoute('/person/xyz?tree=abc')).toBe(true);

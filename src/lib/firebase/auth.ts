@@ -16,7 +16,14 @@ import {
   reload,
   User as FirebaseUser,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, updateDoc, deleteField, serverTimestamp } from 'firebase/firestore';
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  deleteField,
+  serverTimestamp,
+  runTransaction,
+} from 'firebase/firestore';
 import { rememberVerificationEmailSent } from '@/lib/auth/verificationNotice';
 import { auth, db } from './config';
 import { verificationContinueUrl } from './authErrors';
@@ -69,19 +76,9 @@ export async function signOut(): Promise<void> {
 export async function signInWithGoogle(): Promise<FirebaseUser> {
   const { user } = await signInWithPopup(auth, googleProvider);
 
-  // Check if user document exists, create if not
-  const userDocRef = doc(db, 'users', user.uid);
-  const userDoc = await getDoc(userDocRef);
-
-  if (!userDoc.exists()) {
-    await setDoc(userDocRef, {
-      email: user.email?.toLowerCase() ?? '',
-      displayName: user.displayName ?? '',
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
-  }
-  await ensureUserDirectory(user);
+  // Same profile create as the auth listener. A second full-document setDoc
+  // is an update, and the rules reject createdAt changes.
+  await Promise.all([ensureOwnUserDoc(user), ensureUserDirectory(user)]);
 
   return user;
 }
@@ -118,21 +115,22 @@ export async function completeEmailLinkSignIn(
     window.localStorage.removeItem('emailForSignIn');
   }
 
-  // Check if user document exists, create if not
-  const userDocRef = doc(db, 'users', user.uid);
-  const userDoc = await getDoc(userDocRef);
+  // signInWithEmailLink verifies the address, but the ID token from that
+  // response can still omit email / email_verified. userDirectory get is
+  // denied for that token when the directory doc does not exist yet.
+  await reload(user);
+  await user.getIdToken(true);
 
-  if (!userDoc.exists()) {
-    await setDoc(userDocRef, {
-      email: user.email?.toLowerCase() ?? '',
-      displayName: user.email?.split('@')[0] || 'User',
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
-  }
-  await ensureUserDirectory(user);
+  await Promise.all([ensureOwnUserDoc(user), ensureUserDirectory(user)]);
 
   return user;
+}
+
+function profileDisplayName(user: FirebaseUser, email: string): string {
+  const fromProfile = user.displayName?.trim() ?? '';
+  if (fromProfile) return fromProfile.slice(0, 100);
+  const local = email.split('@')[0]?.trim() ?? '';
+  return (local || 'User').slice(0, 100);
 }
 
 export async function ensureOwnUserDoc(user: FirebaseUser): Promise<void> {
@@ -140,14 +138,19 @@ export async function ensureOwnUserDoc(user: FirebaseUser): Promise<void> {
   if (!email) return;
 
   const userRef = doc(db, 'users', user.uid);
-  const snap = await getDoc(userRef);
-  if (snap.exists()) return;
+  const displayName = profileDisplayName(user, email);
 
-  await setDoc(userRef, {
-    email,
-    displayName: user.displayName ?? '',
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
+  // Transaction so a parallel caller (auth listener + email-link completion)
+  // cannot turn this create into an update that rewrites createdAt.
+  await runTransaction(db, async (transaction) => {
+    const snap = await transaction.get(userRef);
+    if (snap.exists()) return;
+    transaction.set(userRef, {
+      email,
+      displayName,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
   });
 }
 
@@ -156,21 +159,23 @@ export async function ensureUserDirectory(user: FirebaseUser): Promise<void> {
   if (!email) return;
 
   const directoryRef = doc(db, 'userDirectory', email);
-  const existing = await getDoc(directoryRef);
   const displayName = user.displayName ?? null;
 
-  if (!existing.exists()) {
-    await setDoc(directoryRef, {
-      uid: user.uid,
-      email,
-      displayName,
-    });
-    return;
-  }
+  await runTransaction(db, async (transaction) => {
+    const existing = await transaction.get(directoryRef);
+    if (!existing.exists()) {
+      transaction.set(directoryRef, {
+        uid: user.uid,
+        email,
+        displayName,
+      });
+      return;
+    }
 
-  if (existing.data().uid === user.uid && existing.data().displayName !== displayName) {
-    await updateDoc(directoryRef, { displayName });
-  }
+    if (existing.data().uid === user.uid && existing.data().displayName !== displayName) {
+      transaction.update(directoryRef, { displayName });
+    }
+  });
 }
 
 export async function clearStoredProfilePhotoUrl(uid: string): Promise<void> {
