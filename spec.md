@@ -113,7 +113,7 @@ No third-party analytics, payment, email delivery (beyond Firebase Auth emails),
 
 ### Architecture summary
 
-- **Frontend:** Next.js 16 App Router, React 19, TypeScript strict, Tailwind CSS 4
+- **Frontend:** Next.js 16 App Router, React 19, TypeScript 6 (strict), Tailwind CSS 4. TypeScript 7 is not adopted: 7.0 ships no compiler API, and `typescript-eslint` (via `eslint-config-next`) rejects it.
 - **State:** Zustand (`authStore`, `treeStore`) + per-hook fetch state
 - **Data access:** Firebase client SDK modules in `src/lib/firebase/`
 - **Validation:** Zod schemas in `src/lib/utils/validation.ts`
@@ -164,7 +164,6 @@ Storage files live under `users/{ownerId}/trees/{treeId}/persons/...` regardless
 | No source/citation model | Records cannot be attached as structured sources |
 | No printable chart export | ✅ | SVG pedigree export from tree view; Letter-sized, privacy-aware |
 | Step-relationships not stored | Recomputed each render; cannot edit or override |
-| README is boilerplate | GitHub landing page does not describe the project |
 
 ### Abandoned or partial systems
 

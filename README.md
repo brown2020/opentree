@@ -21,16 +21,16 @@ Verified from the current codebase:
 
 | Area | Choice | Version (package.json) |
 | --- | --- | --- |
-| Framework | Next.js (App Router) | 16.3.5 |
-| UI | React | ^19.2.7 |
+| Framework | Next.js (App Router) | ^16.4.3 |
+| UI | React | ^19.3.1 |
 | Language | TypeScript | ^6.0.3 |
-| Styling | Tailwind CSS | ^4.3.2 |
-| State | Zustand | ^5.0.14 |
-| Forms | react-hook-form + Zod + `@hookform/resolvers` | — |
+| Styling | Tailwind CSS | ^4.3.3 |
+| State | Zustand | ^5.0.16 |
+| Forms | react-hook-form + Zod + `@hookform/resolvers` | ^7.91.0 / ^4.6.7 / ^7.0.1 |
 | Visualization | d3-selection / d3-zoom / d3-transition | ^3.x |
-| Backend | Firebase Auth, Firestore, Storage (client SDK) | ^12.16.0 |
+| Backend | Firebase Auth, Firestore, Storage (client SDK) | ^13.1.0 |
 | Export | jszip, custom GEDCOM helpers | — |
-| Tests | Vitest | ^4.1.10 |
+| Tests | Vitest | ^5.0.5 |
 
 No Stripe or AI providers in this repo.
 
@@ -59,7 +59,7 @@ firebase.json
 
 ### Prerequisites
 
-- Node.js 22 (matches CI) or a current LTS
+- Node.js 24 (matches CI)
 - npm
 - A Firebase project (Auth, Firestore, Storage)
 
@@ -122,7 +122,7 @@ Open [http://localhost:3000](http://localhost:3000).
 ## Testing and CI
 
 - Vitest covers auth routes/session helpers, GEDCOM import, pedigree export, person privacy, duplicate detection, invite email helpers, and more under `src/**/*.test.ts`.
-- CI: lint, typecheck, test, build on `dev`/`main` and PRs (Node 22), with Firebase `NEXT_PUBLIC_*` from Actions secrets.
+- CI: lint, typecheck, test, build on `dev`/`main` and PRs (Node 24), with Firebase `NEXT_PUBLIC_*` from Actions secrets.
 
 ## Deployment
 
