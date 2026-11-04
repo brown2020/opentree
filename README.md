@@ -21,16 +21,16 @@ Verified from the current codebase:
 
 | Area | Choice | Version (package.json) |
 | --- | --- | --- |
-| Framework | Next.js (App Router) | ^16.4.3 |
+| Framework | Next.js (App Router) | ^16.4.5 |
 | UI | React | ^19.3.1 |
 | Language | TypeScript | ^6.0.3 |
-| Styling | Tailwind CSS | ^4.3.3 |
+| Styling | Tailwind CSS | ^4.3.4 |
 | State | Zustand | ^5.0.16 |
-| Forms | react-hook-form + Zod + `@hookform/resolvers` | ^7.91.0 / ^4.6.7 / ^7.0.1 |
+| Forms | react-hook-form + Zod + `@hookform/resolvers` | ^7.91.0 / ^4.6.7 / ^7.0.2 |
 | Visualization | d3-selection / d3-zoom / d3-transition | ^3.x |
-| Backend | Firebase Auth, Firestore, Storage (client SDK) | ^13.1.0 |
+| Backend | Firebase Auth, Firestore, Storage (client SDK) | ^13.2.0 |
 | Export | jszip, custom GEDCOM helpers | — |
-| Tests | Vitest | ^5.0.5 |
+| Tests | Vitest | ^5.1.0 |
 
 No Stripe or AI providers in this repo.
 

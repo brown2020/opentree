@@ -11,7 +11,8 @@ export function memberIdsAddsOnlySelf(
   if (previous.includes(uid)) return false;
   if (!next.includes(uid)) return false;
   if (next.length !== previous.length + 1) return false;
-  return previous.every((id) => next.includes(id));
+  const nextIds = new Set(next);
+  return previous.every((id) => nextIds.has(id));
 }
 
 /** Editor authority is accessLevel only. A legacy role field must not grant edit. */

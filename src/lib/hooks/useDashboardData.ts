@@ -113,6 +113,7 @@ export function useDashboardData(userId: string | undefined, trees: Tree[]) {
         setConsolidatedActivity(allActivities.slice(0, 10));
       })
       .finally(() => {
+        if (cancelled) return;
         setActivityLoading(false);
       });
 

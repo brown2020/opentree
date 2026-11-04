@@ -206,10 +206,13 @@ async function migrateLegacySensitiveFields(
   try {
     for (let i = 0; i < legacy.length; i += 200) {
       const chunk = legacy.slice(i, i + 200);
+      const existingProfiles = await Promise.all(
+        chunk.map((personDoc) => readRestrictedProfile(treeId, personDoc.id))
+      );
       const batch = writeBatch(db);
-      for (const personDoc of chunk) {
+      chunk.forEach((personDoc, index) => {
         const parent = personDoc.data();
-        const existing = await readRestrictedProfile(treeId, personDoc.id);
+        const existing = existingProfiles[index];
         const sensitive = pickSensitiveFields(parent);
         if (
           typeof sensitive.profilePhotoUrl === 'string' &&
@@ -228,7 +231,7 @@ async function migrateLegacySensitiveFields(
           clear[key] = deleteField();
         }
         batch.update(doc(db, 'trees', treeId, 'persons', personDoc.id), clear);
-      }
+      });
       await batch.commit();
     }
   } catch (err) {
