@@ -80,8 +80,11 @@ describe('layoutFamilyTree', () => {
     expect(child!.y).toBeGreaterThan(root!.y);
     expect(spouse!.generation).toBe(root!.generation);
     expect(spouse!.y).toBe(root!.y);
-    // NODE_WIDTH 200 + COUPLE_GAP 10; spouses sit immediately beside the root.
-    expect(spouse!.x - root!.x).toBe(210);
+    // NODE_WIDTH 200 + COUPLE_GAP 36. The open gap is the spouse connector.
+    expect(spouse!.x - root!.x).toBe(236);
+    const spouseLink = links.find((link) => link.type === 'spouse');
+    expect(spouseLink).toBeDefined();
+    expect(spouseLink!.to.x - spouseLink!.from.x).toBe(36);
 
     expect(links.some((link) => link.type === 'spouse')).toBe(true);
     expect(links.some((link) => link.type === 'parent-child')).toBe(true);

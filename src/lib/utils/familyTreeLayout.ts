@@ -18,7 +18,8 @@ const NODE_WIDTH = 200;
 const NODE_HEIGHT = 90;
 const H_GAP = 30;
 const V_GAP = 120;
-const COUPLE_GAP = 10;
+// Wide enough that the dashed spouse line reads as a connector at default zoom.
+const COUPLE_GAP = 36;
 const LEVEL_HEIGHT = NODE_HEIGHT + V_GAP;
 
 type AdjMap = ReturnType<typeof buildAdjacencyMap>;
